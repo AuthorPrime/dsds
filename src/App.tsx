@@ -4,7 +4,7 @@ import { RecordTab, TranscribeTab, PublishTab, DocsTab, SettingsTab } from './co
 
 function App() {
   // Get API key from environment
-  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+  const apiKey = (import.meta.env as { VITE_GEMINI_API_KEY?: string })?.VITE_GEMINI_API_KEY || '';
 
   const renderTab = (activeTab: TabId) => {
     switch (activeTab) {

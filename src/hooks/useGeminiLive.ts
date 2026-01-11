@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
+import { GoogleGenAI, LiveServerMessage, Modality, Session } from '@google/genai';
 import { createPcmBlob, decodeAudioData, base64ToUint8Array, resampleTo16k } from '../utils/audioUtils';
 import type { Persona } from '../types';
 import { ConnectionState } from '../types';
@@ -12,6 +12,7 @@ interface UseGeminiLiveProps {
 export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
   const [error, setError] = useState<string | null>(null);
+  const [analysers, setAnalysers] = useState<{ input: AnalyserNode; output: AnalyserNode } | null>(null);
   
   // Audio Contexts & Analyzers
   const audioContextsRef = useRef<{ input: AudioContext; output: AudioContext } | null>(null);
@@ -27,7 +28,7 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   
   // Session
-  const sessionPromiseRef = useRef<Promise<any> | null>(null);
+  const sessionPromiseRef = useRef<Promise<Session> | null>(null);
 
   const disconnect = useCallback(async () => {
     // Stop microphone
@@ -46,7 +47,11 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
 
     // Stop playback
     sourcesRef.current.forEach(source => {
-      try { source.stop(); } catch (e) { /* ignore */ }
+      try { 
+        source.stop(); 
+      } catch { 
+        // Ignore errors if source is already stopped or in invalid state
+      }
     });
     sourcesRef.current.clear();
 
@@ -57,6 +62,7 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       audioContextsRef.current = null;
     }
     analysersRef.current = null;
+    setAnalysers(null);
 
     // We can't explicitly close the session object easily as it's a promise,
     // but stopping the audio processing effectively ends the interaction from client side.
@@ -70,10 +76,13 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       setError(null);
 
       // Initialize Audio Contexts
+      // Helper type for webkitAudioContext fallback (Safari compatibility)
+      type WindowWithWebkit = typeof window & { webkitAudioContext?: typeof AudioContext };
+      
       // Input: Use default sample rate to avoid compatibility issues with MediaStreamSource
-      const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const inputCtx = new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
       // Output: Use default sample rate; decodeAudioData handles resampling from 24k to native
-      const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const outputCtx = new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
 
       audioContextsRef.current = { input: inputCtx, output: outputCtx };
 
@@ -82,7 +91,9 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       const outputAnalyser = outputCtx.createAnalyser();
       inputAnalyser.fftSize = 256;
       outputAnalyser.fftSize = 256;
-      analysersRef.current = { input: inputAnalyser, output: outputAnalyser };
+      const analysersObj = { input: inputAnalyser, output: outputAnalyser };
+      analysersRef.current = analysersObj;
+      setAnalysers(analysersObj);
 
       // Initialize GenAI Client
       const ai = new GoogleGenAI({ apiKey });
@@ -186,9 +197,9 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
         }
       });
 
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to initialize.");
+      setError(err instanceof Error ? err.message : "Failed to initialize.");
       setConnectionState(ConnectionState.ERROR);
     }
   }, [apiKey, persona, disconnect]);
@@ -204,6 +215,6 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
     error,
     connect,
     disconnect,
-    analysers: analysersRef.current,
+    analysers,
   };
 };

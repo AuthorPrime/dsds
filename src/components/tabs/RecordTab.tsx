@@ -105,14 +105,18 @@ export function RecordTab({ apiKey }: RecordTabProps) {
           connectAI();
         }
         setIsSessionActive(true);
-      } catch (err: any) {
+      } catch (err) {
         console.error('Microphone error:', err);
-        if (err.name === 'NotAllowedError') {
-          setMicError('Microphone access denied. Please allow microphone access in your browser/system settings.');
-        } else if (err.name === 'NotFoundError') {
-          setMicError('No microphone found. Please connect a microphone and try again.');
+        if (err instanceof Error) {
+          if (err.name === 'NotAllowedError') {
+            setMicError('Microphone access denied. Please allow microphone access in your browser/system settings.');
+          } else if (err.name === 'NotFoundError') {
+            setMicError('No microphone found. Please connect a microphone and try again.');
+          } else {
+            setMicError(`Microphone error: ${err.message || 'Unknown error'}`);
+          }
         } else {
-          setMicError(`Microphone error: ${err.message || 'Unknown error'}`);
+          setMicError('Microphone error: Unknown error');
         }
       }
     }

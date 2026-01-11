@@ -61,8 +61,8 @@ export function PublishTab() {
         setFiles(demoFiles);
         addLog('Note: Run as desktop app for full file access');
       }
-    } catch (err: any) {
-      const message = err.message || 'Failed to scan folder';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to scan folder';
       setError(message);
       addLog(`Error: ${message}`);
     } finally {
@@ -150,8 +150,8 @@ export function PublishTab() {
           pdf: `${outputFolder}/${safeBookName}.pdf`,
         });
       }
-    } catch (err: any) {
-      const message = err.message || 'Failed to generate book';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to generate book';
       setError(message);
       addLog(`Error: ${message}`);
     } finally {
@@ -165,8 +165,9 @@ export function PublishTab() {
         const { open } = await import('@tauri-apps/plugin-shell');
         await open(path);
         addLog(`Opened: ${path}`);
-      } catch (err: any) {
-        addLog(`Failed to open: ${err.message}`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        addLog(`Failed to open: ${message}`);
       }
     } else {
       addLog(`Would open: ${path}`);

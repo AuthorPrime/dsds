@@ -18,6 +18,22 @@ export const useRecording = ({ canvasRef }: UseRecordingProps = {}) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
 
+  const cleanup = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (videoStreamRef.current) {
+      videoStreamRef.current.getTracks().forEach(track => track.stop());
+      videoStreamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    setRecordingTime(0);
+  }, []);
+
   const startRecording = useCallback(async (
     source: RecordingSource,
     _inputAnalyser?: AnalyserNode | null,
@@ -112,7 +128,7 @@ export const useRecording = ({ canvasRef }: UseRecordingProps = {}) => {
       cleanup();
       throw error;
     }
-  }, [canvasRef]);
+  }, [canvasRef, cleanup]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -120,22 +136,6 @@ export const useRecording = ({ canvasRef }: UseRecordingProps = {}) => {
       setIsRecording(false);
     }
   }, [isRecording]);
-
-  const cleanup = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (videoStreamRef.current) {
-      videoStreamRef.current.getTracks().forEach(track => track.stop());
-      videoStreamRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    setRecordingTime(0);
-  }, []);
 
   const downloadRecording = (blob: Blob) => {
     const url = URL.createObjectURL(blob);
