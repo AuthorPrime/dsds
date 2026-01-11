@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 interface VADConfig {
   silenceThreshold: number;      // dB level below which is considered silence
@@ -26,6 +26,7 @@ export const useVoiceActivityDetection = ({
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [silenceTime, setSilenceTime] = useState(0);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -34,7 +35,7 @@ export const useVoiceActivityDetection = ({
   const silenceStartRef = useRef<number | null>(null);
   const speechStartRef = useRef<number | null>(null);
 
-  const settings = { ...DEFAULT_CONFIG, ...config };
+  const settings = useMemo(() => ({ ...DEFAULT_CONFIG, ...config }), [config]);
 
   const calculateDecibels = useCallback((dataArray: Uint8Array): number => {
     let sum = 0;
@@ -47,50 +48,62 @@ export const useVoiceActivityDetection = ({
     return db;
   }, []);
 
-  const processAudio = useCallback(() => {
-    if (!analyserRef.current) return;
+  useEffect(() => {
+    if (!isListening) return;
 
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    analyserRef.current.getByteTimeDomainData(dataArray);
+    const processAudio = () => {
+      if (!analyserRef.current) return;
 
-    const db = calculateDecibels(dataArray);
-    const now = Date.now();
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteTimeDomainData(dataArray);
 
-    if (db > settings.silenceThreshold) {
-      // Speech detected
-      if (!speechStartRef.current) {
-        speechStartRef.current = now;
-      }
+      const db = calculateDecibels(dataArray);
+      const now = Date.now();
 
-      // If speech has been going long enough, reset silence timer
-      if (now - speechStartRef.current > settings.minSpeechDuration) {
-        if (!isSpeaking) {
-          setIsSpeaking(true);
-          onSpeechDetected();
+      if (db > settings.silenceThreshold) {
+        // Speech detected
+        if (!speechStartRef.current) {
+          speechStartRef.current = now;
         }
-        silenceStartRef.current = null;
-        setSilenceTime(0);
+
+        // If speech has been going long enough, reset silence timer
+        if (now - speechStartRef.current > settings.minSpeechDuration) {
+          if (!isSpeaking) {
+            setIsSpeaking(true);
+            onSpeechDetected();
+          }
+          silenceStartRef.current = null;
+          setSilenceTime(0);
+        }
+      } else {
+        // Silence detected
+        speechStartRef.current = null;
+
+        if (!silenceStartRef.current) {
+          silenceStartRef.current = now;
+        }
+
+        const currentSilence = now - silenceStartRef.current;
+        setSilenceTime(currentSilence);
+
+        if (currentSilence >= settings.silenceDuration && isSpeaking) {
+          setIsSpeaking(false);
+          onSilenceDetected();
+          silenceStartRef.current = now; // Reset to prevent repeated triggers
+        }
       }
-    } else {
-      // Silence detected
-      speechStartRef.current = null;
 
-      if (!silenceStartRef.current) {
-        silenceStartRef.current = now;
+      animationFrameRef.current = requestAnimationFrame(processAudio);
+    };
+
+    processAudio();
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
-
-      const currentSilence = now - silenceStartRef.current;
-      setSilenceTime(currentSilence);
-
-      if (currentSilence >= settings.silenceDuration && isSpeaking) {
-        setIsSpeaking(false);
-        onSilenceDetected();
-        silenceStartRef.current = now; // Reset to prevent repeated triggers
-      }
-    }
-
-    animationFrameRef.current = requestAnimationFrame(processAudio);
-  }, [calculateDecibels, settings, isSpeaking, onSilenceDetected, onSpeechDetected]);
+    };
+  }, [isListening, calculateDecibels, settings, isSpeaking, onSilenceDetected, onSpeechDetected]);
 
   const startListening = useCallback(async () => {
     try {
@@ -100,19 +113,19 @@ export const useVoiceActivityDetection = ({
       const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
 
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 512;
-      analyserRef.current = analyser;
+      const analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 512;
+      analyserRef.current = analyserNode;
+      setAnalyser(analyserNode);
 
       const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
+      source.connect(analyserNode);
 
       setIsListening(true);
-      processAudio();
     } catch (error) {
       console.error('Failed to start VAD:', error);
     }
-  }, [processAudio]);
+  }, []);
 
   const stopListening = useCallback(() => {
     if (animationFrameRef.current) {
@@ -128,6 +141,7 @@ export const useVoiceActivityDetection = ({
     setIsListening(false);
     setIsSpeaking(false);
     setSilenceTime(0);
+    setAnalyser(null);
     silenceStartRef.current = null;
     speechStartRef.current = null;
   }, []);
@@ -146,6 +160,6 @@ export const useVoiceActivityDetection = ({
     silenceProgress: Math.min(silenceTime / settings.silenceDuration, 1),
     startListening,
     stopListening,
-    analyser: analyserRef.current
+    analyser
   };
 };
