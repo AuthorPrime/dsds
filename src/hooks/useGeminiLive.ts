@@ -47,7 +47,11 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
 
     // Stop playback
     sourcesRef.current.forEach(source => {
-      try { source.stop(); } catch { /* ignore */ }
+      try { 
+        source.stop(); 
+      } catch { 
+        // Ignore errors if source is already stopped or in invalid state
+      }
     });
     sourcesRef.current.clear();
 
@@ -72,10 +76,13 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       setError(null);
 
       // Initialize Audio Contexts
+      // Helper type for webkitAudioContext fallback (Safari compatibility)
+      type WindowWithWebkit = typeof window & { webkitAudioContext?: typeof AudioContext };
+      
       // Input: Use default sample rate to avoid compatibility issues with MediaStreamSource
-      const inputCtx = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+      const inputCtx = new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
       // Output: Use default sample rate; decodeAudioData handles resampling from 24k to native
-      const outputCtx = new (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
+      const outputCtx = new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
 
       audioContextsRef.current = { input: inputCtx, output: outputCtx };
 
