@@ -178,9 +178,8 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
               
               const source = output.createBufferSource();
               source.buffer = audioBuffer;
+              // Connect source to analyser (analyser already connected to destinations during init)
               source.connect(outputAnalyser);
-              
-              // Analyser is already connected to both destination and recording stream
               
               source.addEventListener('ended', () => {
                 sourcesRef.current.delete(source);

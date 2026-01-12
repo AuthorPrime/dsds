@@ -3,7 +3,13 @@ import type { Blob } from '@google/genai';
 // Safari AudioContext compatibility
 export function createAudioContext(): AudioContext {
   type WindowWithWebkit = typeof window & { webkitAudioContext?: typeof AudioContext };
-  return new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
+  const AudioCtx = window.AudioContext || (window as WindowWithWebkit).webkitAudioContext;
+  
+  if (!AudioCtx) {
+    throw new Error('AudioContext is not supported in this browser.');
+  }
+  
+  return new AudioCtx();
 }
 
 // Enumerate audio devices and validate availability

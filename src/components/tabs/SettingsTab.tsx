@@ -30,25 +30,24 @@ const WHISPER_MODELS = [
 
 // Load settings from localStorage
 function loadSettings(): Settings {
+  const defaults = {
+    geminiApiKey: '',
+    defaultVoice: 'Kore',
+    silenceThreshold: 2000,
+    localModelPath: '/home/n0t/.ollama/models',
+    whisperModel: 'small',
+    outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
+    autoTranscribe: false,
+    darkMode: true,
+  };
+
   try {
     const saved = localStorage.getItem('dsds-settings');
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Validate that parsed object has expected shape to prevent prototype pollution
-      // and ensure type safety
-      if (typeof parsed === 'object' && parsed !== null) {
+      // Validate that parsed is a plain object to prevent prototype pollution
+      if (typeof parsed === 'object' && parsed !== null && parsed.constructor === Object) {
         // Return a new object with only validated fields, using defaults for missing ones
-        const defaults = {
-          geminiApiKey: '',
-          defaultVoice: 'Kore',
-          silenceThreshold: 2000,
-          localModelPath: '/home/n0t/.ollama/models',
-          whisperModel: 'small',
-          outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
-          autoTranscribe: false,
-          darkMode: true,
-        };
-        
         return {
           geminiApiKey: typeof parsed.geminiApiKey === 'string' ? parsed.geminiApiKey : defaults.geminiApiKey,
           defaultVoice: typeof parsed.defaultVoice === 'string' ? parsed.defaultVoice : defaults.defaultVoice,
@@ -65,16 +64,7 @@ function loadSettings(): Settings {
     console.error('Failed to load settings from localStorage:', error);
   }
   // Return defaults if nothing saved or error occurred
-  return {
-    geminiApiKey: '',
-    defaultVoice: 'Kore',
-    silenceThreshold: 2000,
-    localModelPath: '/home/n0t/.ollama/models',
-    whisperModel: 'small',
-    outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
-    autoTranscribe: false,
-    darkMode: true,
-  };
+  return defaults;
 }
 
 export function SettingsTab() {

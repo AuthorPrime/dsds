@@ -19,6 +19,10 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
   const videoStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const aiAudioStreamRef = useRef<MediaStream | null>(null);
+
+  // Keep aiAudioStreamRef in sync
+  aiAudioStreamRef.current = aiAudioStream || null;
 
   const cleanup = useCallback(() => {
     if (timerRef.current) {
@@ -84,9 +88,9 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
       // Mix in AI audio (Aletheia) if available
       // Note: AI audio comes from a separate AudioContext in useGeminiLive,
       // so we can safely mix it without creating feedback loops
-      if (aiAudioStream && aiAudioStream.getAudioTracks().length > 0) {
+      if (aiAudioStreamRef.current && aiAudioStreamRef.current.getAudioTracks().length > 0) {
         try {
-          const aiSource = audioContext.createMediaStreamSource(aiAudioStream);
+          const aiSource = audioContext.createMediaStreamSource(aiAudioStreamRef.current);
           aiSource.connect(destination);
           console.log('AI audio (Aletheia) connected to recording');
         } catch (aiError) {
@@ -147,7 +151,7 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
       cleanup();
       throw error;
     }
-  }, [canvasRef, aiAudioStream, cleanup]);
+  }, [canvasRef, cleanup]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
