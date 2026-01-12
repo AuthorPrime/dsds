@@ -28,30 +28,30 @@ const WHISPER_MODELS = [
   { id: 'large', name: 'Large', description: 'Slowest, best accuracy' },
 ];
 
-export function SettingsTab() {
-  // Load settings from localStorage on mount
-  const loadSettings = (): Settings => {
-    try {
-      const saved = localStorage.getItem('dsds-settings');
-      if (saved) {
-        return JSON.parse(saved);
-      }
-    } catch (error) {
-      console.error('Failed to load settings from localStorage:', error);
+// Load settings from localStorage
+function loadSettings(): Settings {
+  try {
+    const saved = localStorage.getItem('dsds-settings');
+    if (saved) {
+      return JSON.parse(saved);
     }
-    // Return defaults if nothing saved or error occurred
-    return {
-      geminiApiKey: '',
-      defaultVoice: 'Kore',
-      silenceThreshold: 2000,
-      localModelPath: '/home/n0t/.ollama/models',
-      whisperModel: 'small',
-      outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
-      autoTranscribe: false,
-      darkMode: true,
-    };
+  } catch (error) {
+    console.error('Failed to load settings from localStorage:', error);
+  }
+  // Return defaults if nothing saved or error occurred
+  return {
+    geminiApiKey: '',
+    defaultVoice: 'Kore',
+    silenceThreshold: 2000,
+    localModelPath: '/home/n0t/.ollama/models',
+    whisperModel: 'small',
+    outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
+    autoTranscribe: false,
+    darkMode: true,
   };
+}
 
+export function SettingsTab() {
   const [settings, setSettings] = useState<Settings>(loadSettings());
 
   const [saved, setSaved] = useState(false);

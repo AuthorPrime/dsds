@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { createAudioContext, enumerateAudioDevices } from '../utils/audioUtils';
 
 export type RecordingSource = 'camera' | 'screen' | 'visualizer';
 
@@ -42,17 +43,7 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
   ) => {
     try {
       // Enumerate audio devices first to ensure they exist
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioInputs = devices.filter(device => device.kind === 'audioinput');
-        if (audioInputs.length === 0) {
-          throw new Error('No audio input devices found. Please connect a microphone.');
-        }
-        console.log(`Found ${audioInputs.length} audio input device(s)`);
-      } catch (enumError) {
-        console.error('Error enumerating devices:', enumError);
-        throw new Error('Failed to enumerate audio devices. Please check your permissions.');
-      }
+      await enumerateAudioDevices();
 
       chunksRef.current = [];
       let videoStream: MediaStream | null = null;
@@ -80,8 +71,7 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
       videoStreamRef.current = videoStream;
 
       // Create audio context for mixing (Safari compatibility)
-      type WindowWithWebkit = typeof window & { webkitAudioContext?: typeof AudioContext };
-      const audioContext = new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
+      const audioContext = createAudioContext();
       audioContextRef.current = audioContext;
       const destination = audioContext.createMediaStreamDestination();
       destinationRef.current = destination;

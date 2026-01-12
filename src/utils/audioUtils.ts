@@ -1,5 +1,27 @@
 import type { Blob } from '@google/genai';
 
+// Safari AudioContext compatibility
+export function createAudioContext(): AudioContext {
+  type WindowWithWebkit = typeof window & { webkitAudioContext?: typeof AudioContext };
+  return new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
+}
+
+// Enumerate audio devices and validate availability
+export async function enumerateAudioDevices(): Promise<MediaDeviceInfo[]> {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter(device => device.kind === 'audioinput');
+    if (audioInputs.length === 0) {
+      throw new Error('No audio input devices found. Please connect a microphone.');
+    }
+    console.log(`Found ${audioInputs.length} audio input device(s)`);
+    return audioInputs;
+  } catch (error) {
+    console.error('Error enumerating devices:', error);
+    throw new Error('Failed to enumerate audio devices. Please check your permissions.');
+  }
+}
+
 export function base64ToUint8Array(base64: string): Uint8Array {
   const binaryString = atob(base64);
   const len = binaryString.length;

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
 import { useGeminiLive } from '../../hooks/useGeminiLive';
 import { useRecording } from '../../hooks/useRecording';
+import { enumerateAudioDevices } from '../../utils/audioUtils';
 import AudioVisualizer from '../AudioVisualizer';
 import { ConnectionState } from '../../types';
 import {
@@ -98,18 +99,7 @@ export function RecordTab({ apiKey }: RecordTabProps) {
       setMicError(null);
       try {
         // Enumerate devices first to check if audio inputs are available
-        try {
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const audioInputs = devices.filter(device => device.kind === 'audioinput');
-          if (audioInputs.length === 0) {
-            setMicError('No microphone found. Please connect a microphone and try again.');
-            return;
-          }
-        } catch (enumError) {
-          console.error('Device enumeration error:', enumError);
-          setMicError('Failed to access audio devices. Please check your browser permissions.');
-          return;
-        }
+        await enumerateAudioDevices();
 
         // Check for microphone permission
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
