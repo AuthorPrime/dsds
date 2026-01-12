@@ -96,6 +96,11 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       aiOutputDestinationRef.current = aiOutputDestination;
       setAiAudioStream(aiOutputDestination.stream);
       
+      // Connect analyser to both speaker output and recording destination
+      // This avoids reconnection on every audio chunk
+      outputAnalyser.connect(outputCtx.destination);
+      outputAnalyser.connect(aiOutputDestination);
+      
       const analysersObj = { input: inputAnalyser, output: outputAnalyser };
       analysersRef.current = analysersObj;
       setAnalysers(analysersObj);
@@ -174,12 +179,8 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
               const source = output.createBufferSource();
               source.buffer = audioBuffer;
               source.connect(outputAnalyser);
-              outputAnalyser.connect(output.destination);
               
-              // Also connect to the recording destination if it exists
-              if (aiOutputDestinationRef.current) {
-                outputAnalyser.connect(aiOutputDestinationRef.current);
-              }
+              // Analyser is already connected to both destination and recording stream
               
               source.addEventListener('ended', () => {
                 sourcesRef.current.delete(source);

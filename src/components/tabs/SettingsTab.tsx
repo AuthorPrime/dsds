@@ -33,7 +33,33 @@ function loadSettings(): Settings {
   try {
     const saved = localStorage.getItem('dsds-settings');
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      // Validate that parsed object has expected shape to prevent prototype pollution
+      // and ensure type safety
+      if (typeof parsed === 'object' && parsed !== null) {
+        // Return a new object with only validated fields, using defaults for missing ones
+        const defaults = {
+          geminiApiKey: '',
+          defaultVoice: 'Kore',
+          silenceThreshold: 2000,
+          localModelPath: '/home/n0t/.ollama/models',
+          whisperModel: 'small',
+          outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
+          autoTranscribe: false,
+          darkMode: true,
+        };
+        
+        return {
+          geminiApiKey: typeof parsed.geminiApiKey === 'string' ? parsed.geminiApiKey : defaults.geminiApiKey,
+          defaultVoice: typeof parsed.defaultVoice === 'string' ? parsed.defaultVoice : defaults.defaultVoice,
+          silenceThreshold: typeof parsed.silenceThreshold === 'number' ? parsed.silenceThreshold : defaults.silenceThreshold,
+          localModelPath: typeof parsed.localModelPath === 'string' ? parsed.localModelPath : defaults.localModelPath,
+          whisperModel: typeof parsed.whisperModel === 'string' ? parsed.whisperModel : defaults.whisperModel,
+          outputFolder: typeof parsed.outputFolder === 'string' ? parsed.outputFolder : defaults.outputFolder,
+          autoTranscribe: typeof parsed.autoTranscribe === 'boolean' ? parsed.autoTranscribe : defaults.autoTranscribe,
+          darkMode: typeof parsed.darkMode === 'boolean' ? parsed.darkMode : defaults.darkMode,
+        };
+      }
     }
   } catch (error) {
     console.error('Failed to load settings from localStorage:', error);

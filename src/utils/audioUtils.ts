@@ -17,7 +17,20 @@ export async function enumerateAudioDevices(): Promise<MediaDeviceInfo[]> {
     console.log(`Found ${audioInputs.length} audio input device(s)`);
     return audioInputs;
   } catch (error) {
-    console.error('Error enumerating devices:', error);
+    if (error instanceof Error) {
+      // Preserve specific error types for better debugging
+      if (error.name === 'NotAllowedError') {
+        throw new Error('Microphone permission denied. Please allow access in your browser settings.');
+      } else if (error.name === 'NotFoundError') {
+        throw new Error('No audio input devices found. Please connect a microphone.');
+      } else if (error.message.includes('audio input devices')) {
+        // Re-throw our custom error message
+        throw error;
+      }
+      console.error('Device enumeration error:', error);
+      throw new Error(`Failed to enumerate audio devices: ${error.message}`);
+    }
+    console.error('Unknown device enumeration error:', error);
     throw new Error('Failed to enumerate audio devices. Please check your permissions.');
   }
 }

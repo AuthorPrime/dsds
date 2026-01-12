@@ -82,6 +82,8 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
       micSource.connect(destination);
 
       // Mix in AI audio (Aletheia) if available
+      // Note: AI audio comes from a separate AudioContext in useGeminiLive,
+      // so we can safely mix it without creating feedback loops
       if (aiAudioStream && aiAudioStream.getAudioTracks().length > 0) {
         try {
           const aiSource = audioContext.createMediaStreamSource(aiAudioStream);
