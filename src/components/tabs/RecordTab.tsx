@@ -51,7 +51,8 @@ export function RecordTab({ apiKey }: RecordTabProps) {
     error,
     connect: connectAI,
     disconnect: disconnectAI,
-    analysers
+    analysers,
+    aiAudioStream
   } = useGeminiLive({ apiKey, persona: AI_PERSONA });
 
   const isAIConnected = connectionState === ConnectionState.CONNECTED;
@@ -61,7 +62,7 @@ export function RecordTab({ apiKey }: RecordTabProps) {
     formattedTime,
     startRecording,
     stopRecording
-  } = useRecording({ canvasRef });
+  } = useRecording({ canvasRef, aiAudioStream });
 
   const handleSilenceDetected = useCallback(() => {
     if (aiEnabled && isAIConnected) {
@@ -96,7 +97,21 @@ export function RecordTab({ apiKey }: RecordTabProps) {
     } else {
       setMicError(null);
       try {
-        // Check for microphone permission first
+        // Enumerate devices first to check if audio inputs are available
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const audioInputs = devices.filter(device => device.kind === 'audioinput');
+          if (audioInputs.length === 0) {
+            setMicError('No microphone found. Please connect a microphone and try again.');
+            return;
+          }
+        } catch (enumError) {
+          console.error('Device enumeration error:', enumError);
+          setMicError('Failed to access audio devices. Please check your browser permissions.');
+          return;
+        }
+
+        // Check for microphone permission
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         stream.getTracks().forEach(track => track.stop()); // Release the test stream
 

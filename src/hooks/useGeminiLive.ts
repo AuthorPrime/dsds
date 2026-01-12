@@ -17,6 +17,7 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
   // Audio Contexts & Analyzers
   const audioContextsRef = useRef<{ input: AudioContext; output: AudioContext } | null>(null);
   const analysersRef = useRef<{ input: AnalyserNode; output: AnalyserNode } | null>(null);
+  const aiOutputDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   
   // Processing
   const streamRef = useRef<MediaStream | null>(null);
@@ -62,6 +63,7 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       audioContextsRef.current = null;
     }
     analysersRef.current = null;
+    aiOutputDestinationRef.current = null;
     setAnalysers(null);
 
     // We can't explicitly close the session object easily as it's a promise,
@@ -91,6 +93,11 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       const outputAnalyser = outputCtx.createAnalyser();
       inputAnalyser.fftSize = 256;
       outputAnalyser.fftSize = 256;
+      
+      // Create a destination for capturing AI audio in recordings
+      const aiOutputDestination = outputCtx.createMediaStreamDestination();
+      aiOutputDestinationRef.current = aiOutputDestination;
+      
       const analysersObj = { input: inputAnalyser, output: outputAnalyser };
       analysersRef.current = analysersObj;
       setAnalysers(analysersObj);
@@ -115,6 +122,14 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
             
             // Setup Microphone Stream
             try {
+              // Enumerate audio devices before attempting capture
+              const devices = await navigator.mediaDevices.enumerateDevices();
+              const audioInputs = devices.filter(device => device.kind === 'audioinput');
+              if (audioInputs.length === 0) {
+                throw new Error('No audio input devices found. Please connect a microphone.');
+              }
+              console.log(`Found ${audioInputs.length} audio input device(s) for AI connection`);
+
               streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
               
               if (!audioContextsRef.current) return;
@@ -168,6 +183,11 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
               source.connect(outputAnalyser);
               outputAnalyser.connect(output.destination);
               
+              // Also connect to the recording destination if it exists
+              if (aiOutputDestinationRef.current) {
+                outputAnalyser.connect(aiOutputDestinationRef.current);
+              }
+              
               source.addEventListener('ended', () => {
                 sourcesRef.current.delete(source);
               });
@@ -216,5 +236,6 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
     connect,
     disconnect,
     analysers,
+    aiAudioStream: aiOutputDestinationRef.current?.stream || null,
   };
 };

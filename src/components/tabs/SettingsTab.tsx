@@ -29,16 +29,30 @@ const WHISPER_MODELS = [
 ];
 
 export function SettingsTab() {
-  const [settings, setSettings] = useState<Settings>({
-    geminiApiKey: '',
-    defaultVoice: 'Kore',
-    silenceThreshold: 2000,
-    localModelPath: '/home/n0t/.ollama/models',
-    whisperModel: 'small',
-    outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
-    autoTranscribe: false,
-    darkMode: true,
-  });
+  // Load settings from localStorage on mount
+  const loadSettings = (): Settings => {
+    try {
+      const saved = localStorage.getItem('dsds-settings');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Failed to load settings from localStorage:', error);
+    }
+    // Return defaults if nothing saved or error occurred
+    return {
+      geminiApiKey: '',
+      defaultVoice: 'Kore',
+      silenceThreshold: 2000,
+      localModelPath: '/home/n0t/.ollama/models',
+      whisperModel: 'small',
+      outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
+      autoTranscribe: false,
+      darkMode: true,
+    };
+  };
+
+  const [settings, setSettings] = useState<Settings>(loadSettings());
 
   const [saved, setSaved] = useState(false);
 
@@ -48,10 +62,16 @@ export function SettingsTab() {
   };
 
   const saveSettings = () => {
-    // In real implementation, save to Tauri store or config file
-    console.log('Saving settings:', settings);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      // Save to localStorage
+      localStorage.setItem('dsds-settings', JSON.stringify(settings));
+      console.log('Settings saved to localStorage:', settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      console.error('Failed to save settings to localStorage:', error);
+      // Could show error message to user here
+    }
   };
 
   return (
