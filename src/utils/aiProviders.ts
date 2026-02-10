@@ -169,12 +169,12 @@ export function companionToPersona(companion: CompanionConfig) {
  */
 export async function checkProviderAvailability(endpoint: string): Promise<boolean> {
   try {
-    const response = await fetch(endpoint, {
+    await fetch(endpoint, {
       method: 'GET',
       mode: 'no-cors', // Avoid CORS issues for local servers
     });
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -183,9 +183,10 @@ export async function checkProviderAvailability(endpoint: string): Promise<boole
  * Get recommended providers based on availability and settings
  */
 export async function getRecommendedProviders() {
-  const llmProviders = await loadLLMProviders();
-  const ttsProviders = await loadTTSProviders();
-  const sttProviders = await loadSTTProviders();
+  // Load providers for future use (available for extension)
+  await loadLLMProviders();
+  await loadTTSProviders();
+  await loadSTTProviders();
   
   const recommendations = {
     llm: 'gemini', // Default to cloud
