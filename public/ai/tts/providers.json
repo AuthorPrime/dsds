@@ -1,0 +1,127 @@
+{
+  "$schema": "./tts-providers-schema.json",
+  "description": "Text-to-Speech provider configurations for DSDS",
+  "providers": {
+    "coqui": {
+      "name": "Coqui TTS",
+      "type": "local",
+      "enabled": true,
+      "defaultEndpoint": "http://localhost:5002",
+      "apiPath": "/api/tts",
+      "description": "High-quality open-source TTS with voice cloning",
+      "voices": [
+        {
+          "id": "tts_models/en/ljspeech/tacotron2-DDC",
+          "name": "LJSpeech (Female)",
+          "language": "en",
+          "quality": "high",
+          "recommended": true
+        },
+        {
+          "id": "tts_models/en/vctk/vits",
+          "name": "VCTK Multi-Speaker",
+          "language": "en",
+          "quality": "high",
+          "recommended": false
+        }
+      ]
+    },
+    "whispercpp_tts": {
+      "name": "Whisper.cpp TTS",
+      "type": "local",
+      "enabled": false,
+      "description": "Note: Whisper.cpp is primarily for STT, but can be paired with Piper for TTS",
+      "note": "Consider using Piper TTS as companion to Whisper.cpp STT"
+    },
+    "edge_tts": {
+      "name": "Edge TTS",
+      "type": "hybrid",
+      "enabled": true,
+      "description": "Microsoft Edge TTS - Free, cloud-based but accessible via local API",
+      "requiresInternet": true,
+      "voices": [
+        {
+          "id": "en-US-AriaNeural",
+          "name": "Aria (Female, Friendly)",
+          "language": "en-US",
+          "quality": "high",
+          "recommended": true
+        },
+        {
+          "id": "en-US-GuyNeural",
+          "name": "Guy (Male, Professional)",
+          "language": "en-US",
+          "quality": "high",
+          "recommended": true
+        },
+        {
+          "id": "en-GB-SoniaNeural",
+          "name": "Sonia (Female, British)",
+          "language": "en-GB",
+          "quality": "high",
+          "recommended": false
+        }
+      ]
+    },
+    "piper": {
+      "name": "Piper TTS",
+      "type": "local",
+      "enabled": true,
+      "defaultEndpoint": "http://localhost:5000",
+      "description": "Fast, lightweight neural TTS by Rhasspy",
+      "voices": [
+        {
+          "id": "en_US-lessac-medium",
+          "name": "Lessac (Male, US)",
+          "language": "en-US",
+          "quality": "medium",
+          "speed": "fast",
+          "recommended": true
+        },
+        {
+          "id": "en_US-amy-medium",
+          "name": "Amy (Female, US)",
+          "language": "en-US",
+          "quality": "medium",
+          "speed": "fast",
+          "recommended": true
+        }
+      ]
+    },
+    "gemini": {
+      "name": "Gemini Live Audio",
+      "type": "remote",
+      "enabled": true,
+      "requiresApiKey": true,
+      "apiKeyEnvVar": "VITE_GEMINI_API_KEY",
+      "description": "Real-time voice from Google Gemini (existing integration)",
+      "voices": [
+        {
+          "id": "Puck",
+          "name": "Puck",
+          "description": "Playful and energetic"
+        },
+        {
+          "id": "Charon",
+          "name": "Charon",
+          "description": "Deep and thoughtful"
+        },
+        {
+          "id": "Kore",
+          "name": "Kore",
+          "description": "Warm and supportive"
+        },
+        {
+          "id": "Fenrir",
+          "name": "Fenrir",
+          "description": "Strong and confident"
+        },
+        {
+          "id": "Zephyr",
+          "name": "Zephyr",
+          "description": "Light and airy"
+        }
+      ]
+    }
+  }
+}

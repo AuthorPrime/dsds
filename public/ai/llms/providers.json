@@ -1,0 +1,98 @@
+{
+  "$schema": "./providers-schema.json",
+  "description": "Local and remote LLM provider configurations for DSDS",
+  "providers": {
+    "ollama": {
+      "name": "Ollama",
+      "type": "local",
+      "enabled": true,
+      "defaultEndpoint": "http://localhost:11434",
+      "apiPath": "/api/generate",
+      "chatPath": "/api/chat",
+      "models": [
+        {
+          "id": "llama3.2",
+          "name": "Llama 3.2",
+          "contextWindow": 8192,
+          "recommended": true
+        },
+        {
+          "id": "mistral",
+          "name": "Mistral 7B",
+          "contextWindow": 8192,
+          "recommended": false
+        },
+        {
+          "id": "phi3",
+          "name": "Phi-3",
+          "contextWindow": 4096,
+          "recommended": false
+        }
+      ]
+    },
+    "gpt4all": {
+      "name": "GPT4All",
+      "type": "local",
+      "enabled": true,
+      "defaultEndpoint": "http://localhost:4891",
+      "apiPath": "/v1/completions",
+      "chatPath": "/v1/chat/completions",
+      "models": [
+        {
+          "id": "mistral-7b-openorca",
+          "name": "Mistral 7B OpenOrca",
+          "contextWindow": 8192,
+          "recommended": true
+        },
+        {
+          "id": "nous-hermes-llama2",
+          "name": "Nous Hermes Llama 2",
+          "contextWindow": 4096,
+          "recommended": false
+        }
+      ]
+    },
+    "lmstudio": {
+      "name": "LM Studio",
+      "type": "local",
+      "enabled": true,
+      "defaultEndpoint": "http://localhost:1234",
+      "apiPath": "/v1/completions",
+      "chatPath": "/v1/chat/completions",
+      "models": []
+    },
+    "gemini": {
+      "name": "Google Gemini",
+      "type": "remote",
+      "enabled": true,
+      "requiresApiKey": true,
+      "apiKeyEnvVar": "VITE_GEMINI_API_KEY",
+      "defaultEndpoint": "https://generativelanguage.googleapis.com",
+      "models": [
+        {
+          "id": "gemini-2.0-flash-exp",
+          "name": "Gemini 2.0 Flash",
+          "contextWindow": 1000000,
+          "recommended": true,
+          "features": ["live-audio"]
+        }
+      ]
+    },
+    "anthropic": {
+      "name": "Anthropic Claude",
+      "type": "remote",
+      "enabled": false,
+      "requiresApiKey": true,
+      "apiKeyEnvVar": "VITE_ANTHROPIC_API_KEY",
+      "defaultEndpoint": "https://api.anthropic.com",
+      "models": [
+        {
+          "id": "claude-3-5-sonnet-20241022",
+          "name": "Claude 3.5 Sonnet",
+          "contextWindow": 200000,
+          "recommended": true
+        }
+      ]
+    }
+  }
+}
