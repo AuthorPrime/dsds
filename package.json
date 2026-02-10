@@ -1,8 +1,33 @@
 {
-  "name": "sovereign-studio-desktop",
+  "name": "dsds",
+  "version": "0.1.0",
+  "description": "Digital Sovereign Desktop Studio - A sovereign content creation suite with local AI, offline capability, and zero vendor lock-in",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AuthorPrime/dsds.git"
+  },
+  "keywords": [
+    "tauri",
+    "desktop",
+    "ai",
+    "local-llm",
+    "ollama",
+    "whisper",
+    "podcast",
+    "transcription",
+    "publishing",
+    "sovereign",
+    "privacy",
+    "offline"
+  ],
+  "author": "Author Prime <authorprime@digitalsovereign.org>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/AuthorPrime/dsds/issues"
+  },
+  "homepage": "https://github.com/AuthorPrime/dsds#readme",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

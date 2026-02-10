@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Sovereign Studio",
+  "productName": "DSDS - Digital Sovereign Desktop Studio",
   "version": "0.1.0",
-  "identifier": "org.digitalsovereign.studio",
+  "identifier": "org.digitalsovereign.dsds",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Sovereign Studio",
+        "title": "DSDS - Sovereign Studio",
         "width": 1400,
         "height": 900,
         "resizable": true,
@@ -32,6 +32,10 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "Digital Sovereign Society",
+    "homepage": "https://github.com/AuthorPrime/dsds",
+    "license": "MIT",
+    "category": "Productivity"
   }
 }
