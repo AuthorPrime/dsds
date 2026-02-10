@@ -166,6 +166,11 @@ export function companionToPersona(companion: CompanionConfig) {
 
 /**
  * Check if a local provider is available (server running)
+ * 
+ * Note: Uses 'no-cors' mode to avoid CORS issues with local servers.
+ * This means the function returns true if the endpoint is reachable,
+ * but cannot verify the actual response status. A successful network
+ * connection is assumed to indicate availability.
  */
 export async function checkProviderAvailability(endpoint: string): Promise<boolean> {
   try {
@@ -181,13 +186,12 @@ export async function checkProviderAvailability(endpoint: string): Promise<boole
 
 /**
  * Get recommended providers based on availability and settings
+ * 
+ * Returns default provider recommendations, with automatic detection
+ * of locally-running services (Ollama, Whisper.cpp) to prefer local
+ * providers when available.
  */
 export async function getRecommendedProviders() {
-  // Load providers for future use (available for extension)
-  await loadLLMProviders();
-  await loadTTSProviders();
-  await loadSTTProviders();
-  
   const recommendations = {
     llm: 'gemini', // Default to cloud
     tts: 'edge_tts', // Free, good quality
