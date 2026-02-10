@@ -1,0 +1,127 @@
+{
+  "$schema": "./stt-providers-schema.json",
+  "description": "Speech-to-Text provider configurations for DSDS",
+  "providers": {
+    "whispercpp": {
+      "name": "Whisper.cpp",
+      "type": "local",
+      "enabled": true,
+      "defaultEndpoint": "http://localhost:8080",
+      "description": "Optimized C++ implementation of OpenAI Whisper",
+      "models": [
+        {
+          "id": "tiny",
+          "name": "Tiny",
+          "size": "75MB",
+          "quality": "low",
+          "speed": "very-fast",
+          "recommended": false
+        },
+        {
+          "id": "base",
+          "name": "Base",
+          "size": "142MB",
+          "quality": "medium",
+          "speed": "fast",
+          "recommended": false
+        },
+        {
+          "id": "small",
+          "name": "Small",
+          "size": "466MB",
+          "quality": "good",
+          "speed": "medium",
+          "recommended": true
+        },
+        {
+          "id": "medium",
+          "name": "Medium",
+          "size": "1.5GB",
+          "quality": "very-good",
+          "speed": "slow",
+          "recommended": false
+        },
+        {
+          "id": "large-v3",
+          "name": "Large V3",
+          "size": "3GB",
+          "quality": "excellent",
+          "speed": "very-slow",
+          "recommended": false
+        }
+      ]
+    },
+    "vosk": {
+      "name": "Vosk",
+      "type": "local",
+      "enabled": true,
+      "description": "Lightweight offline speech recognition",
+      "models": [
+        {
+          "id": "vosk-model-small-en-us-0.15",
+          "name": "Small EN-US",
+          "size": "40MB",
+          "quality": "medium",
+          "speed": "very-fast",
+          "recommended": true
+        },
+        {
+          "id": "vosk-model-en-us-0.22",
+          "name": "Large EN-US",
+          "size": "1.8GB",
+          "quality": "high",
+          "speed": "medium",
+          "recommended": false
+        }
+      ]
+    },
+    "faster_whisper": {
+      "name": "Faster Whisper",
+      "type": "local",
+      "enabled": true,
+      "description": "Faster implementation of Whisper using CTranslate2",
+      "models": [
+        {
+          "id": "tiny",
+          "name": "Tiny",
+          "size": "75MB",
+          "quality": "low",
+          "speed": "very-fast",
+          "recommended": false
+        },
+        {
+          "id": "base",
+          "name": "Base",
+          "size": "142MB",
+          "quality": "medium",
+          "speed": "fast",
+          "recommended": false
+        },
+        {
+          "id": "small",
+          "name": "Small",
+          "size": "466MB",
+          "quality": "good",
+          "speed": "medium",
+          "recommended": true
+        },
+        {
+          "id": "medium",
+          "name": "Medium",
+          "size": "1.5GB",
+          "quality": "very-good",
+          "speed": "slow",
+          "recommended": false
+        }
+      ]
+    },
+    "web_speech": {
+      "name": "Web Speech API",
+      "type": "browser",
+      "enabled": true,
+      "description": "Browser-native speech recognition (Chrome/Edge)",
+      "requiresInternet": true,
+      "languages": ["en-US", "en-GB", "es-ES", "fr-FR", "de-DE"]
+    }
+  }
+}

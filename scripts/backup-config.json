@@ -1,0 +1,131 @@
+{
+  "$schema": "./backup-schema.json",
+  "version": "1.0.0",
+  "description": "DSDS Backup and Versioning Configuration",
+  "backup": {
+    "enabled": true,
+    "schedule": {
+      "daily": {
+        "enabled": true,
+        "time": "02:00",
+        "type": "incremental"
+      },
+      "weekly": {
+        "enabled": true,
+        "dayOfWeek": "sunday",
+        "time": "03:00",
+        "type": "full"
+      },
+      "beforeChanges": {
+        "enabled": true,
+        "description": "Backup before major modifications"
+      }
+    },
+    "destinations": [
+      {
+        "id": "local_external",
+        "type": "local",
+        "enabled": false,
+        "path": "/path/to/external/drive/dsds-backups",
+        "description": "External USB drive or separate partition"
+      },
+      {
+        "id": "network_nas",
+        "type": "network",
+        "enabled": false,
+        "path": "//nas.local/backups/dsds",
+        "description": "Network attached storage"
+      },
+      {
+        "id": "syncthing",
+        "type": "syncthing",
+        "enabled": false,
+        "folderId": "dsds-sovereign-library",
+        "devices": [],
+        "description": "Syncthing P2P synchronization"
+      }
+    ],
+    "retention": {
+      "daily": 7,
+      "weekly": 4,
+      "monthly": 12,
+      "description": "Keep 7 daily, 4 weekly, 12 monthly backups"
+    },
+    "include": [
+      "sovereign_library/memories/**",
+      "sovereign_library/journal/**",
+      "sovereign_library/transcripts/**",
+      "sovereign_library/publications/**",
+      "sovereign_library/research/**",
+      "companions/**",
+      "rituals/**",
+      ".env"
+    ],
+    "exclude": [
+      "sovereign_library/recordings/**/*.wav",
+      "sovereign_library/recordings/**/*.mp4",
+      "sovereign_library/backups/**",
+      "**/*.tmp",
+      "**/*.cache",
+      "**/node_modules/**",
+      "**/.git/**"
+    ],
+    "compression": {
+      "enabled": true,
+      "format": "zip",
+      "level": 6
+    }
+  },
+  "versioning": {
+    "enabled": true,
+    "git": {
+      "enabled": true,
+      "autoCommit": true,
+      "autoCommitPaths": [
+        "sovereign_library/journal/**",
+        "sovereign_library/publications/**",
+        "companions/**"
+      ],
+      "commitMessage": "Auto-save: {timestamp}",
+      "remote": {
+        "enabled": false,
+        "url": "",
+        "branch": "main",
+        "autoPush": false
+      }
+    },
+    "snapshots": {
+      "enabled": true,
+      "beforeEdit": true,
+      "keepCount": 10,
+      "location": "sovereign_library/.snapshots"
+    }
+  },
+  "sync": {
+    "syncthing": {
+      "enabled": false,
+      "apiUrl": "http://localhost:8384",
+      "apiKey": "",
+      "folders": [
+        {
+          "id": "dsds-sovereign-library",
+          "path": "sovereign_library",
+          "devices": [],
+          "ignorePatterns": [
+            "recordings/**/*.wav",
+            "recordings/**/*.mp4",
+            "backups/**"
+          ]
+        }
+      ]
+    }
+  },
+  "recovery": {
+    "enabled": true,
+    "autoRecovery": {
+      "enabled": true,
+      "corruptionDetection": true,
+      "autoRestore": false
+    }
+  }
+}

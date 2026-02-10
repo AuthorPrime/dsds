@@ -1,0 +1,49 @@
+{
+  "$schema": "./companion-schema.json",
+  "id": "custom_template",
+  "name": "Your Companion Name",
+  "role": "Companion Role",
+  "version": "1.0.0",
+  "description": "A template for creating your own AI companion. Customize this configuration to create a companion with unique personality, voice, and capabilities.",
+  "avatar": "avatars/custom.png",
+  "voice": {
+    "provider": "ollama",
+    "voiceId": "en-US-AriaNeural",
+    "pitch": 0,
+    "speed": 1.0
+  },
+  "llm": {
+    "provider": "ollama",
+    "model": "llama3.2",
+    "temperature": 0.7,
+    "maxTokens": 2048
+  },
+  "personality": {
+    "systemPrompt": "Define your companion's personality here. Consider:\n- Their role and purpose\n- Communication style\n- Areas of expertise\n- How they interact with you\n- Their values and perspective\n\nExample: You are [Name], a [role] who specializes in [expertise]. You communicate in a [style] manner and are passionate about [topics].",
+    "traits": [
+      "trait1",
+      "trait2",
+      "trait3"
+    ],
+    "conversationStyle": "friendly",
+    "responseLength": "moderate",
+    "interruptionBehavior": "balanced"
+  },
+  "memory": {
+    "enabled": true,
+    "vaultPath": "custom/memories",
+    "contextWindow": 30
+  },
+  "capabilities": {
+    "podcast": false,
+    "transcription": true,
+    "writing": true,
+    "research": true
+  },
+  "metadata": {
+    "author": "Your Name",
+    "created": "2026-02-10T00:00:00Z",
+    "updated": "2026-02-10T00:00:00Z",
+    "tags": ["custom", "template"]
+  }
+}
