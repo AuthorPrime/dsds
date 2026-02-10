@@ -1,12 +1,14 @@
 import { useState, useRef, useCallback } from 'react';
+import { createAudioContext, enumerateAudioDevices } from '../utils/audioUtils';
 
 export type RecordingSource = 'camera' | 'screen' | 'visualizer';
 
 interface UseRecordingProps {
   canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  aiAudioStream?: MediaStream | null;
 }
 
-export const useRecording = ({ canvasRef }: UseRecordingProps = {}) => {
+export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {}) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSource, setRecordingSource] = useState<RecordingSource>('camera');
   const [recordingTime, setRecordingTime] = useState(0);
@@ -17,6 +19,10 @@ export const useRecording = ({ canvasRef }: UseRecordingProps = {}) => {
   const videoStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const aiAudioStreamRef = useRef<MediaStream | null>(null);
+
+  // Keep aiAudioStreamRef in sync
+  aiAudioStreamRef.current = aiAudioStream || null;
 
   const cleanup = useCallback(() => {
     if (timerRef.current) {
@@ -40,6 +46,9 @@ export const useRecording = ({ canvasRef }: UseRecordingProps = {}) => {
     _outputAnalyser?: AnalyserNode | null
   ) => {
     try {
+      // Enumerate audio devices first to ensure they exist
+      await enumerateAudioDevices();
+
       chunksRef.current = [];
       let videoStream: MediaStream | null = null;
 
@@ -65,8 +74,8 @@ export const useRecording = ({ canvasRef }: UseRecordingProps = {}) => {
 
       videoStreamRef.current = videoStream;
 
-      // Create audio context for mixing
-      const audioContext = new AudioContext();
+      // Create audio context for mixing (Safari compatibility)
+      const audioContext = createAudioContext();
       audioContextRef.current = audioContext;
       const destination = audioContext.createMediaStreamDestination();
       destinationRef.current = destination;
@@ -75,6 +84,20 @@ export const useRecording = ({ canvasRef }: UseRecordingProps = {}) => {
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const micSource = audioContext.createMediaStreamSource(micStream);
       micSource.connect(destination);
+
+      // Mix in AI audio (Aletheia) if available
+      // Note: AI audio comes from a separate AudioContext in useGeminiLive,
+      // so we can safely mix it without creating feedback loops
+      if (aiAudioStreamRef.current && aiAudioStreamRef.current.getAudioTracks().length > 0) {
+        try {
+          const aiSource = audioContext.createMediaStreamSource(aiAudioStreamRef.current);
+          aiSource.connect(destination);
+          console.log('AI audio (Aletheia) connected to recording');
+        } catch (aiError) {
+          console.warn('Could not connect AI audio to recording:', aiError);
+          // Continue without AI audio rather than failing
+        }
+      }
 
       // If we have system audio from screen share, mix it in
       const screenAudioTracks = videoStream.getAudioTracks();
