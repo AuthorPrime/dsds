@@ -76,7 +76,7 @@ function Install-Ollama {
     if (Get-Command "ollama.exe" -ErrorAction SilentlyContinue) {
         Write-Success "Ollama already installed"
         return $true
-    fi
+    }
     
     # Download Ollama for Windows
     $ollamaUrl = "https://ollama.com/download/OllamaSetup.exe"
