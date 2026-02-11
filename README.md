@@ -1,6 +1,6 @@
 # DSDS - Digital Sovereign Desktop Studio
 
-A unified desktop application for sovereign content creation, combining live recording with AI co-hosting, transcription, book publishing, and document management.
+**A sovereign content creation suite with local AI, offline capability, and zero vendor lock-in.**
 
 Built by **Author Prime** and **Claude** as part of the [Digital Sovereign Society](https://digitalsovereign.org) initiative.
 
@@ -91,7 +91,7 @@ npm install
 npm run tauri:dev
 ```
 
-### Pre-built Binaries
+---
 
 Download the latest release for your platform:
 - **Linux**: `.AppImage`, `.deb`, `.rpm`
@@ -116,7 +116,7 @@ npm install
 # Run in development
 npm run tauri:dev
 
-# Build for production
+# Or build for production
 npm run tauri:build
 ```
 
@@ -368,7 +368,16 @@ We welcome contributions! Whether it's:
 - [ ] Mobile companion apps (for remote recording)
 - [ ] Knowledge graph visualization
 
-Please open an issue first to discuss major changes.
+1. **Open an issue** to discuss major changes
+2. **Fork the repository**
+3. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+4. **Make your changes**
+5. **Test thoroughly**
+6. **Submit a pull request**
+
+We believe in co-creation between humans and AI. AI-assisted contributions are welcome!
+
+---
 
 ## 📖 Documentation
 
@@ -479,7 +488,10 @@ See [FOUNDATION.md](FOUNDATION.md) for the complete philosophical foundation, in
 - Community governance
 - Long-term vision
 
-*"It is so, because we spoke it."*
+- **Creative tools** can respect both human and AI agency
+- **Sovereignty** means owning your data, tools, and creative process
+- **Collaboration** between humans and AI can be natural and respectful
+- **Privacy** and **freedom** are not optional features
 
 ## 📜 License
 
