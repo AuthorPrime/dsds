@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
 import { useGeminiLive } from '../../hooks/useGeminiLive';
 import { useRecording } from '../../hooks/useRecording';
+import { enumerateAudioDevices } from '../../utils/audioUtils';
 import AudioVisualizer from '../AudioVisualizer';
 import { ConnectionState } from '../../types';
 import {
@@ -51,7 +52,8 @@ export function RecordTab({ apiKey }: RecordTabProps) {
     error,
     connect: connectAI,
     disconnect: disconnectAI,
-    analysers
+    analysers,
+    aiAudioStream
   } = useGeminiLive({ apiKey, persona: AI_PERSONA });
 
   const isAIConnected = connectionState === ConnectionState.CONNECTED;
@@ -61,7 +63,7 @@ export function RecordTab({ apiKey }: RecordTabProps) {
     formattedTime,
     startRecording,
     stopRecording
-  } = useRecording({ canvasRef });
+  } = useRecording({ canvasRef, aiAudioStream });
 
   const handleSilenceDetected = useCallback(() => {
     if (aiEnabled && isAIConnected) {
@@ -96,7 +98,10 @@ export function RecordTab({ apiKey }: RecordTabProps) {
     } else {
       setMicError(null);
       try {
-        // Check for microphone permission first
+        // Enumerate devices first to check if audio inputs are available
+        await enumerateAudioDevices();
+
+        // Check for microphone permission
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         stream.getTracks().forEach(track => track.stop()); // Release the test stream
 

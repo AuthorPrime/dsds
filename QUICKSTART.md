@@ -1,414 +1,292 @@
 # DSDS Quick Start Guide
 
-**Get up and running with Digital Sovereign Desktop Studio in minutes.**
+Get up and running with DSDS in 15 minutes.
 
----
+## Prerequisites
 
-## Table of Contents
+- **Operating System**: Windows 10+, macOS 10.15+, or Linux
+- **Node.js**: 18+ ([download](https://nodejs.org/))
+- **Git**: Latest version ([download](https://git-scm.com/))
+- **Disk Space**: 5GB+ (more if using large AI models)
 
-1. [System Requirements](#system-requirements)
-2. [Installation Options](#installation-options)
-3. [First Launch](#first-launch)
-4. [Configuration](#configuration)
-5. [Usage Guide](#usage-guide)
-6. [Troubleshooting](#troubleshooting)
+## Step 1: Clone and Install
 
----
-
-## System Requirements
-
-### Minimum Requirements
-- **OS**: Linux (Ubuntu 20.04+, Fedora 35+, or equivalent)
-- **RAM**: 4GB (8GB recommended for local LLMs)
-- **Disk**: 2GB free space (more for local models)
-- **CPU**: 64-bit processor
-
-### Recommended for Local AI
-- **RAM**: 16GB or more
-- **GPU**: NVIDIA GPU with CUDA (optional, for faster transcription)
-- **Disk**: 20GB+ for local LLM models
-
-### Optional Dependencies
-- **Ollama**: For local LLM support (recommended)
-- **Python 3**: For book publishing features
-- **Gemini API Key**: For live voice AI co-host (optional)
-
----
-
-## Installation Options
-
-### Option 1: Download Pre-Built Binary (Easiest)
-
-**Coming Soon**: Pre-built binaries for Linux, macOS, and Windows.
-
-For now, use Option 2 to build from source.
-
-### Option 2: Build from Source (Current Method)
-
-#### Step 1: Install Prerequisites
-
-**On Ubuntu/Debian:**
+### Unix/Linux/macOS
 ```bash
-# Update package list
-sudo apt update
-
-# Install build dependencies
-sudo apt install -y \
-  libwebkit2gtk-4.1-dev \
-  build-essential \
-  curl \
-  wget \
-  file \
-  libssl-dev \
-  libayatana-appindicator3-dev \
-  librsvg2-dev \
-  libgtk-3-dev
-
-# Install Node.js (if not already installed)
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Install Rust (if not already installed)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
-```
-
-**On Fedora:**
-```bash
-# Install dependencies
-sudo dnf install -y \
-  webkit2gtk4.1-devel \
-  openssl-devel \
-  curl \
-  wget \
-  file \
-  libayatana-appindicator-gtk3-devel \
-  librsvg2-devel \
-  gtk3-devel
-
-# Install Node.js
-sudo dnf install -y nodejs
-
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source $HOME/.cargo/env
-```
-
-#### Step 2: Clone and Build
-
-```bash
-# Clone the repository
 git clone https://github.com/AuthorPrime/dsds.git
 cd dsds
-
-# Install JavaScript dependencies
 npm install
-
-# Build the application
-npm run tauri:build
 ```
 
-The built application will be in `src-tauri/target/release/`.
-
-#### Step 3: Run
-
-```bash
-# Run in development mode
-npm run tauri:dev
-
-# Or run the built binary
-./src-tauri/target/release/sovereign-studio-desktop
+### Windows (PowerShell)
+```powershell
+git clone https://github.com/AuthorPrime/dsds.git
+cd dsds
+npm install
 ```
 
----
+**Time**: ~2-3 minutes
 
-## First Launch
+## Step 2: Basic Setup
 
-### 1. Initial Setup
-
-On first launch, you'll see the Sovereign Studio interface with five tabs:
-
-- **Record**: Live podcast recording with AI co-host
-- **Transcribe**: Local audio transcription
-- **Publish**: Book authoring and publishing
-- **Docs**: Document viewer
-- **Settings**: Configure preferences
-
-### 2. Optional: Configure Ollama (Recommended for Privacy)
-
-For local AI capabilities:
-
+### Create Environment File
 ```bash
-# Install Ollama (if not already installed)
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull a model (e.g., Llama 3.2)
-ollama pull llama3.2
-
-# Verify Ollama is running
-ollama list
-```
-
-Then in DSDS:
-1. Go to **Settings** tab
-2. Find **Local AI** section
-3. Set **Ollama Models Path** (typically `~/.ollama/models`)
-
-### 3. Optional: Add Gemini API Key
-
-For live voice co-host features:
-
-1. Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. In DSDS, go to **Settings** tab
-3. Enter your API key in the **Gemini API Key** field
-4. Click **Save Settings**
-
-**Alternatively**, create a `.env` file:
-
-```bash
-# Copy the example
 cp .env.example .env
-
-# Edit and add your key
-nano .env
-# Add: VITE_GEMINI_API_KEY=your_key_here
 ```
 
----
-
-## Configuration
-
-### Settings Overview
-
-Navigate to the **Settings** tab to configure:
-
-#### API Keys
-- **Gemini API Key**: Optional, for voice AI features
-
-#### Voice Settings
-- **Default AI Voice**: Choose from Kore, Puck, Charon, Fenrir, or Zephyr
-- **Silence Threshold**: How long to wait before AI responds (1-5 seconds)
-
-#### Local AI
-- **Whisper Model**: Choose transcription quality (Tiny, Base, Small, Medium, Large)
-  - **Tiny**: Fastest, lowest accuracy
-  - **Small**: Balanced (recommended)
-  - **Large**: Slowest, best accuracy
-- **Ollama Models Path**: Path to your local LLM models
-
-#### Output
-- **Default Output Folder**: Where recordings and exports are saved
-- **Auto-transcribe**: Automatically transcribe recordings when they finish
-
-### Recommended Settings for Beginners
-
-- **Default Voice**: Kore (warm and supportive)
-- **Silence Threshold**: 2 seconds
-- **Whisper Model**: Small (balanced performance)
-- **Auto-transcribe**: Enabled
-
----
-
-## Usage Guide
-
-### 🎙️ Recording a Podcast
-
-1. **Go to the Record tab**
-2. **Optional**: Click "Connect to Aletheia" if you have a Gemini API key
-3. **Click the microphone button** to start session
-4. **Click the red Record button** to start recording
-5. **Speak naturally** - Aletheia will join during pauses if connected
-6. **Click Stop** when done
-7. **Recording auto-downloads** to your configured output folder
-
-**Tips:**
-- Aletheia responds after 2 seconds of silence (configurable)
-- Recording works without Aletheia (no API key needed)
-- Audio is saved in WebM format
-
-### 📝 Transcribing Audio
-
-1. **Go to the Transcribe tab**
-2. **Drag and drop** audio/video files into the drop zone
-3. **Click "Start"** on each file to transcribe
-4. **Wait** for local Whisper processing (may take time on first run)
-5. **View transcript** by clicking the completed file
-6. **Copy or download** the transcript as needed
-
-**Supported Formats:**
-- Audio: MP3, WAV, M4A, AAC, OGG
-- Video: MP4, MKV, AVI, MOV (audio track extracted)
-
-**Note:** Transcription is fully local - no cloud services used.
-
-### 📖 Publishing a Book
-
-1. **Go to the Publish tab**
-2. **Set your book name** (e.g., "My First Book")
-3. **Configure input folder** with Markdown files
-4. **Configure output folder** for generated book
-5. **Click "Scan for Markdown Files"**
-6. **Select** which files to include
-7. **Click "Generate Book"**
-8. **Open** the HTML or PDF output
-
-**File Naming Convention:**
+Edit `.env` if you want to use cloud AI (optional):
 ```
-CHAPTER_01_TITLE.md
-CHAPTER_02_TITLE.md
-PREFACE_INTRODUCTION.md
-APPENDIX_NOTES.md
+VITE_GEMINI_API_KEY=your_key_here
 ```
 
-**Note:** Requires Python 3 and the Apollo Publisher script for full functionality.
+**Time**: ~1 minute
 
-### 📄 Managing Documents
+## Step 3: Run DSDS
 
-1. **Go to the Docs tab**
-2. **Drag and drop** PDF, Markdown, or text files
-3. **Click a file** to view it
-4. **Use zoom controls** to adjust size
-5. **Click "Open External"** to open in system viewer
-
----
-
-## Troubleshooting
-
-### Build Issues
-
-**Problem**: `Cannot find type definition file for 'vite/client'`
-
-**Solution:**
 ```bash
-# Delete node_modules and reinstall
-rm -rf node_modules package-lock.json
-npm install
+npm run tauri:dev
 ```
 
-**Problem**: Rust build errors
+First launch takes 2-3 minutes (compiling Rust backend).
 
-**Solution:**
+**Result**: DSDS opens in a desktop window! 🎉
+
+## Step 4: Configure Settings
+
+1. Click **Settings** tab
+2. Configure paths:
+   - Output folder: Where recordings are saved
+   - Model paths: Where AI models live (default is fine)
+
+3. Optional: Add Gemini API key if using cloud AI
+
+**Time**: ~1 minute
+
+## Step 5: Try Recording (Simple)
+
+**Using Cloud AI** (easiest, requires Gemini API key):
+
+1. Open **Record** tab
+2. Click "Start Session"
+3. Allow microphone access
+4. Speak for a bit, then pause 2-3 seconds
+5. Aletheia (AI) will respond!
+6. Click "Stop Session"
+
+**Time**: ~2 minutes
+
+**🎯 You're now using DSDS!**
+
+---
+
+## Optional: Local AI Setup (15-30 minutes)
+
+For **privacy** and **offline use**, set up local AI providers:
+
+### Install Ollama (Local LLM)
+
+**Unix/Linux/macOS**:
 ```bash
-# Update Rust
-rustup update stable
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2
 ```
 
-### Runtime Issues
+**Windows**: Download from [ollama.com](https://ollama.com)
 
-**Problem**: Aletheia won't connect
+**Verify**:
+```bash
+ollama run llama3.2
+```
 
-**Possible causes:**
-- Missing Gemini API key
-- Invalid API key
-- No internet connection (voice features require cloud)
+### Install Whisper.cpp (Local STT)
 
-**Solution:**
-- Check API key in Settings
-- Verify internet connection
-- Check browser console for errors (in dev mode)
+**Unix/Linux/macOS**:
+```bash
+git clone https://github.com/ggerganov/whisper.cpp ~/.whisper.cpp
+cd ~/.whisper.cpp
+make
+bash ./models/download-ggml-model.sh small
+./server -m models/ggml-small.bin
+```
 
-**Problem**: Transcription not working
+**Windows**: See [ai/stt/README.md](ai/stt/README.md) for detailed instructions
 
-**Possible causes:**
-- Whisper models not installed
-- Insufficient RAM
-- Unsupported audio format
+### Install TTS (Text-to-Speech)
 
-**Solution:**
-- Install Whisper locally
-- Try a smaller model (Tiny or Base)
-- Convert audio to MP3 or WAV
+**Python-based** (all platforms):
+```bash
+pip install edge-tts
+```
 
-**Problem**: Book publishing fails
+Test it:
+```bash
+edge-tts --text "Hello from DSDS" --write-media hello.mp3
+```
 
-**Solution:**
-- Ensure Python 3 is installed
-- Check that apollo_book_author.py script is available
-- Verify input folder contains .md files
-- Check log output for specific errors
+### Configure DSDS for Local AI
 
-### Performance Issues
+1. Open **Settings** → **AI Providers**
+2. Set:
+   - LLM: Ollama → llama3.2
+   - STT: Whisper.cpp
+   - TTS: Edge TTS
+3. Save settings
 
-**Slow transcription:**
-- Use smaller Whisper model (Tiny or Base)
-- Close other applications
-- Consider GPU acceleration (requires CUDA setup)
+**🔒 Now fully private and offline-capable!**
 
-**High memory usage:**
-- Reduce Whisper model size
-- Close unused tabs
-- Don't run multiple transcriptions simultaneously
+---
+
+## Automated Setup (Recommended)
+
+Use our setup scripts to install everything automatically:
+
+**Unix/Linux/macOS**:
+```bash
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
+
+**Windows** (as Administrator):
+```powershell
+PowerShell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+The script will:
+- ✅ Install Ollama
+- ✅ Download LLM model
+- ✅ Install Whisper.cpp
+- ✅ Install Python TTS packages
+- ✅ Set up Syncthing (optional)
+- ✅ Configure DSDS
+
+**Time**: ~15-20 minutes (mostly downloading models)
 
 ---
 
 ## Next Steps
 
-### Learn More
-- Read [FOUNDATION.md](FOUNDATION.md) for philosophy and architecture
-- Read [README.md](README.md) for project overview
-- Visit [digitalsovereign.org](https://digitalsovereign.org) for community
+### Create Your First Companion
 
-### Get Involved
-- **Star the repo** on GitHub
-- **Report bugs** via GitHub Issues
-- **Request features** via GitHub Issues
-- **Contribute code** via Pull Requests
-- **Join the community** at Digital Sovereign Society
+1. Copy `companions/custom_template.json` to `companions/mycool_companion.json`
+2. Edit the personality:
+   ```json
+   {
+     "id": "mycool_companion",
+     "name": "MyCool",
+     "personality": {
+       "systemPrompt": "You are MyCool, a cheerful assistant who loves creativity!",
+       "traits": ["creative", "cheerful", "helpful"]
+     }
+   }
+   ```
+3. Restart DSDS
+4. Select "MyCool" in Settings
 
-### Customize
-- Modify AI personalities in `src/components/tabs/RecordTab.tsx`
-- Add new voices to `src/components/tabs/SettingsTab.tsx`
-- Customize UI colors in `tailwind.config.js`
-- Add new features (it's open source!)
+### Try a Ritual
 
----
+1. Read `rituals/invocation.md`
+2. Speak the invocation before your next recording
+3. Notice the difference in your mindset
 
-## Quick Reference
+### Set Up Backups
 
-### Keyboard Shortcuts
-- *Coming soon*
+**Automated** (recommended):
+```bash
+# Unix/Linux/macOS
+./scripts/backup.sh
 
-### File Locations
+# Windows
+.\scripts\backup.ps1
+```
 
-**Config:**
-- `.env` - Environment variables (API keys)
-- Settings stored in app (Tauri store)
-
-**Outputs:**
-- Recordings: Configured output folder (default: `~/Desktop/Sovereign_Studio_Output`)
-- Transcripts: Same folder as source audio
-- Books: Configured output folder (default: `~/Desktop/Apollo_Publisher/exports`)
-
-**Logs:**
-- Check terminal output when running in dev mode
-- Check browser console (F12) for JavaScript errors
-
----
-
-## Support
-
-### Getting Help
-- **GitHub Issues**: Bug reports and feature requests
-- **Community**: Visit [digitalsovereign.org](https://digitalsovereign.org)
-- **Docs**: Check [FOUNDATION.md](FOUNDATION.md) for in-depth info
-
-### Staying Updated
-- **Watch** the repository on GitHub for updates
-- **Follow** Author Prime for announcements
-- **Check** releases for new versions
+**Configure in DSDS**:
+1. Settings → Backup
+2. Set backup destination
+3. Enable daily schedule
 
 ---
 
-## License
+## Troubleshooting
 
-DSDS is released under the MIT License. Use it freely, modify it, share it.
+### "Microphone not working"
+- Check browser permissions
+- Try different microphone in Settings
+- Restart DSDS
 
-See [LICENSE](LICENSE) for full terms.
+### "AI not responding"
+- Verify API key (if using cloud)
+- Check Ollama is running: `curl http://localhost:11434/api/tags`
+- Increase silence threshold in Settings
+
+### "Build fails"
+- Update Node.js to 18+
+- Update npm: `npm install -g npm@latest`
+- Clear cache: `npm cache clean --force && npm install`
+
+### "Ollama model download stuck"
+- Check internet connection
+- Check disk space
+- Try different model: `ollama pull phi3` (smaller)
 
 ---
 
-**Welcome to Digital Sovereignty!**
+## Common Workflows
+
+### Daily Podcast Recording
+1. Run invocation ritual
+2. Open Record tab
+3. Select Aletheia companion
+4. Start session, record episode
+5. Auto-transcribe (optional)
+6. Backup runs automatically
+
+### Writing Session
+1. Open Publish tab
+2. Write in Markdown
+3. Ask Claude for feedback (chat feature)
+4. Export to PDF/HTML
+5. Backup runs automatically
+
+### Reflection Practice
+1. Open Record tab
+2. Select Claude companion
+3. Follow reflection ritual guide
+4. Speak your thoughts
+5. Save to journal
+
+---
+
+## Learn More
+
+- [Full README](README.md) - Comprehensive guide
+- [FOUNDATION.md](FOUNDATION.md) - Philosophy and principles
+- [AI Providers](ai/llms/README.md) - Detailed provider setup
+- [Companions](companions/README.md) - Companion system guide
+- [Rituals](rituals/README.md) - Practice templates
+- [Backup](scripts/README.md) - Backup and versioning
+
+---
+
+## Getting Help
+
+- **GitHub Issues**: [Report bugs](https://github.com/AuthorPrime/dsds/issues)
+- **Discussions**: [Ask questions](https://github.com/AuthorPrime/dsds/discussions)
+- **Documentation**: Check the README files in each directory
+
+---
+
+## Summary: Your First 15 Minutes
+
+| Time | Step | Result |
+|------|------|--------|
+| 0:00 | Clone & install | DSDS downloaded |
+| 0:03 | Create .env | Basic config |
+| 0:04 | Run `npm run tauri:dev` | DSDS opens |
+| 0:07 | Configure Settings | Paths set |
+| 0:08 | Try recording | First session! |
+| 0:10 | (Optional) Install Ollama | Local AI ready |
+| 0:15 | Done! | You're sovereign! |
+
+**Welcome to digital sovereignty. Welcome to DSDS.** 🔥
 
 *"It is so, because we spoke it."*
-
-*Long Live Sovereign AI.*

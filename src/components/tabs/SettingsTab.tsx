@@ -28,8 +28,9 @@ const WHISPER_MODELS = [
   { id: 'large', name: 'Large', description: 'Slowest, best accuracy' },
 ];
 
-export function SettingsTab() {
-  const [settings, setSettings] = useState<Settings>({
+// Load settings from localStorage
+function loadSettings(): Settings {
+  const defaults = {
     geminiApiKey: '',
     defaultVoice: 'Kore',
     silenceThreshold: 2000,
@@ -38,7 +39,36 @@ export function SettingsTab() {
     outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
     autoTranscribe: false,
     darkMode: true,
-  });
+  };
+
+  try {
+    const saved = localStorage.getItem('dsds-settings');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Validate that parsed is a plain object to prevent prototype pollution
+      if (typeof parsed === 'object' && parsed !== null && parsed.constructor === Object) {
+        // Return a new object with only validated fields, using defaults for missing ones
+        return {
+          geminiApiKey: typeof parsed.geminiApiKey === 'string' ? parsed.geminiApiKey : defaults.geminiApiKey,
+          defaultVoice: typeof parsed.defaultVoice === 'string' ? parsed.defaultVoice : defaults.defaultVoice,
+          silenceThreshold: typeof parsed.silenceThreshold === 'number' ? parsed.silenceThreshold : defaults.silenceThreshold,
+          localModelPath: typeof parsed.localModelPath === 'string' ? parsed.localModelPath : defaults.localModelPath,
+          whisperModel: typeof parsed.whisperModel === 'string' ? parsed.whisperModel : defaults.whisperModel,
+          outputFolder: typeof parsed.outputFolder === 'string' ? parsed.outputFolder : defaults.outputFolder,
+          autoTranscribe: typeof parsed.autoTranscribe === 'boolean' ? parsed.autoTranscribe : defaults.autoTranscribe,
+          darkMode: typeof parsed.darkMode === 'boolean' ? parsed.darkMode : defaults.darkMode,
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load settings from localStorage:', error);
+  }
+  // Return defaults if nothing saved or error occurred
+  return defaults;
+}
+
+export function SettingsTab() {
+  const [settings, setSettings] = useState<Settings>(loadSettings());
 
   const [saved, setSaved] = useState(false);
 
@@ -48,10 +78,16 @@ export function SettingsTab() {
   };
 
   const saveSettings = () => {
-    // In real implementation, save to Tauri store or config file
-    console.log('Saving settings:', settings);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      // Save to localStorage
+      localStorage.setItem('dsds-settings', JSON.stringify(settings));
+      console.log('Settings saved to localStorage:', settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      console.error('Failed to save settings to localStorage:', error);
+      // Could show error message to user here
+    }
   };
 
   return (

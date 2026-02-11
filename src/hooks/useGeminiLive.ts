@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality, Session } from '@google/genai';
-import { createPcmBlob, decodeAudioData, base64ToUint8Array, resampleTo16k } from '../utils/audioUtils';
+import { createPcmBlob, decodeAudioData, base64ToUint8Array, resampleTo16k, createAudioContext, enumerateAudioDevices } from '../utils/audioUtils';
 import type { Persona } from '../types';
 import { ConnectionState } from '../types';
 
@@ -13,10 +13,12 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
   const [error, setError] = useState<string | null>(null);
   const [analysers, setAnalysers] = useState<{ input: AnalyserNode; output: AnalyserNode } | null>(null);
+  const [aiAudioStream, setAiAudioStream] = useState<MediaStream | null>(null);
   
   // Audio Contexts & Analyzers
   const audioContextsRef = useRef<{ input: AudioContext; output: AudioContext } | null>(null);
   const analysersRef = useRef<{ input: AnalyserNode; output: AnalyserNode } | null>(null);
+  const aiOutputDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   
   // Processing
   const streamRef = useRef<MediaStream | null>(null);
@@ -62,7 +64,9 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       audioContextsRef.current = null;
     }
     analysersRef.current = null;
+    aiOutputDestinationRef.current = null;
     setAnalysers(null);
+    setAiAudioStream(null);
 
     // We can't explicitly close the session object easily as it's a promise,
     // but stopping the audio processing effectively ends the interaction from client side.
@@ -75,14 +79,9 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       setConnectionState(ConnectionState.CONNECTING);
       setError(null);
 
-      // Initialize Audio Contexts
-      // Helper type for webkitAudioContext fallback (Safari compatibility)
-      type WindowWithWebkit = typeof window & { webkitAudioContext?: typeof AudioContext };
-      
-      // Input: Use default sample rate to avoid compatibility issues with MediaStreamSource
-      const inputCtx = new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
-      // Output: Use default sample rate; decodeAudioData handles resampling from 24k to native
-      const outputCtx = new (window.AudioContext || (window as WindowWithWebkit).webkitAudioContext)();
+      // Initialize Audio Contexts (Safari compatibility)
+      const inputCtx = createAudioContext();
+      const outputCtx = createAudioContext();
 
       audioContextsRef.current = { input: inputCtx, output: outputCtx };
 
@@ -91,6 +90,17 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
       const outputAnalyser = outputCtx.createAnalyser();
       inputAnalyser.fftSize = 256;
       outputAnalyser.fftSize = 256;
+      
+      // Create a destination for capturing AI audio in recordings
+      const aiOutputDestination = outputCtx.createMediaStreamDestination();
+      aiOutputDestinationRef.current = aiOutputDestination;
+      setAiAudioStream(aiOutputDestination.stream);
+      
+      // Connect analyser to both speaker output and recording destination
+      // This avoids reconnection on every audio chunk
+      outputAnalyser.connect(outputCtx.destination);
+      outputAnalyser.connect(aiOutputDestination);
+      
       const analysersObj = { input: inputAnalyser, output: outputAnalyser };
       analysersRef.current = analysersObj;
       setAnalysers(analysersObj);
@@ -115,6 +125,9 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
             
             // Setup Microphone Stream
             try {
+              // Enumerate audio devices before attempting capture
+              await enumerateAudioDevices();
+
               streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
               
               if (!audioContextsRef.current) return;
@@ -165,8 +178,8 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
               
               const source = output.createBufferSource();
               source.buffer = audioBuffer;
+              // Connect source to analyser (analyser already connected to destinations during init)
               source.connect(outputAnalyser);
-              outputAnalyser.connect(output.destination);
               
               source.addEventListener('ended', () => {
                 sourcesRef.current.delete(source);
@@ -216,5 +229,6 @@ export const useGeminiLive = ({ apiKey, persona }: UseGeminiLiveProps) => {
     connect,
     disconnect,
     analysers,
+    aiAudioStream,
   };
 };

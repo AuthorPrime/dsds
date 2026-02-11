@@ -39,3 +39,41 @@ Thumbs.db
 
 # Local development
 *.local
+
+# Sovereign Library - User Data
+sovereign_library/memories/**/*.json
+sovereign_library/journal/**
+sovereign_library/recordings/**
+sovereign_library/transcripts/**
+sovereign_library/publications/**
+sovereign_library/research/**
+sovereign_library/backups/**
+
+# Keep structure but ignore content
+!sovereign_library/**/.keep
+!sovereign_library/README.md
+
+# AI Models (too large for git)
+*.gguf
+*.bin
+*.pt
+*.pth
+*.onnx
+ai/models/**
+
+# Temporary files
+*.tmp
+*.cache
+*.swp
+*~
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
