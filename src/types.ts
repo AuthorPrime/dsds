@@ -110,6 +110,7 @@ export interface AudioVisualizerProps {
   analyser: AnalyserNode | null;
   isActive: boolean;
   color: string;
+  mode?: 'default' | 'cinematic';
 }
 
 // Connection State

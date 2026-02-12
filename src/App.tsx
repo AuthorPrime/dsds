@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Layout } from './components/layout/Layout';
 import type { TabId } from './components/layout/Layout';
 import {
@@ -8,9 +9,17 @@ import {
   DocsTab,
   SettingsTab,
 } from './components/tabs';
+import { ensureDirectories } from './services/fileManager';
 
 function App() {
   const apiKey = (import.meta.env as { VITE_GEMINI_API_KEY?: string })?.VITE_GEMINI_API_KEY || '';
+
+  // Create output folder structure on app startup
+  useEffect(() => {
+    ensureDirectories().catch(err =>
+      console.warn('Could not create output directories:', err)
+    );
+  }, []);
 
   const renderTab = (activeTab: TabId) => {
     switch (activeTab) {

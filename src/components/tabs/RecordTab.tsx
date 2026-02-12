@@ -289,7 +289,7 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
           </div>
           <div className="flex items-center gap-4 flex-shrink-0">
             {isRecording && (
-              <span className="flex items-center gap-1 text-red-400 text-sm font-mono bg-red-900/20 px-3 py-1 rounded-full">
+              <span className="flex items-center gap-1 text-red-400 text-sm font-mono bg-red-900/20 px-3 py-1 rounded-full pulse-glow-red">
                 <Circle size={8} className="fill-red-500 animate-pulse" /> REC {formattedTime}
               </span>
             )}
@@ -309,8 +309,8 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                 <Users size={16} /> Participants
               </h3>
               {/* Host */}
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-cyan-900/20 border border-cyan-500/30 mb-2">
-                <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center font-bold flex-shrink-0">AP</div>
+              <div className={`flex items-center gap-3 p-3 rounded-lg bg-cyan-900/20 border border-cyan-500/30 mb-2 ${isSpeaking ? 'speaking-ring' : ''}`}>
+                <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-bold flex-shrink-0 ${isSpeaking ? 'ring-2 ring-cyan-400/60' : ''}`}>AP</div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-cyan-300 truncate">Author Prime</p>
                   <p className="text-xs text-gray-500">Host</p>
@@ -318,9 +318,9 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                 {isSpeaking && <Volume2 size={16} className="text-cyan-400 animate-pulse flex-shrink-0" />}
               </div>
               {/* AI Companion */}
-              <div className={`flex items-center gap-3 p-3 rounded-lg border ${aiEnabled && isAIConnected ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-800/50 border-gray-700'}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${aiEnabled && isAIConnected ? 'bg-purple-600' : 'bg-gray-700'}`}>
-                  <Cpu size={18} />
+              <div className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${aiEnabled && isAIConnected ? 'bg-purple-900/20 border-purple-500/30 pulse-glow-purple' : 'bg-gray-800/50 border-gray-700'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${aiEnabled && isAIConnected ? 'bg-gradient-to-br from-purple-500 to-fuchsia-600' : 'bg-gray-700'}`}>
+                  {companionName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || <Cpu size={18} />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`font-semibold truncate ${aiEnabled ? 'text-purple-300' : 'text-gray-500'}`}>{companionName}</p>
@@ -399,7 +399,7 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                 <div className="mb-4 flex-shrink-0">
                   <div className="text-xs font-mono text-cyan-400 uppercase mb-2">Host Audio</div>
                   <div className="h-16">
-                    <AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" />
+                    <AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" mode="cinematic" />
                   </div>
                 </div>
 
@@ -456,8 +456,15 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                 </div>
 
                 {!isSessionActive && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
-                    <p className="text-gray-400">Start session to begin</p>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-xl">
+                    <div className="text-center">
+                      <div className="relative inline-block mb-4">
+                        <Radio size={48} className="text-purple-400 breathe" />
+                        <div className="absolute inset-0 rounded-full pulse-glow-purple" />
+                      </div>
+                      <p className="text-lg font-semibold text-slate-200">Session with {companionName}</p>
+                      <p className="text-sm text-slate-500 mt-1">Press START LIVE SESSION to begin</p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -468,19 +475,26 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                   <div className="relative">
                     <div className="text-xs font-mono text-cyan-400 uppercase mb-2">Host Audio</div>
                     <div className="h-32">
-                      <AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" />
+                      <AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" mode="cinematic" />
                     </div>
                   </div>
                   <div className="relative">
                     <div className="text-xs font-mono text-purple-400 uppercase mb-2">{companionName}</div>
                     <div className="h-24 opacity-80">
-                      <AudioVisualizer analyser={analysers?.output || null} isActive={isAIConnected} color="#c084fc" />
+                      <AudioVisualizer analyser={analysers?.output || null} isActive={isAIConnected} color="#c084fc" mode="cinematic" />
                     </div>
                   </div>
                 </div>
                 {!isSessionActive && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
-                    <p className="text-gray-400">Start session to begin</p>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-xl">
+                    <div className="text-center">
+                      <div className="relative inline-block mb-4">
+                        <Radio size={48} className="text-purple-400 breathe" />
+                        <div className="absolute inset-0 rounded-full pulse-glow-purple" />
+                      </div>
+                      <p className="text-lg font-semibold text-slate-200">Session with {companionName}</p>
+                      <p className="text-sm text-slate-500 mt-1">Press START LIVE SESSION to begin</p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -494,7 +508,7 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                   ? 'bg-gray-800 text-gray-400 border-2 border-gray-700 cursor-wait'
                   : isSessionActive
                     ? 'bg-red-500/20 text-red-400 border-2 border-red-500/50 hover:bg-red-500 hover:text-white'
-                    : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:scale-[1.02] shadow-lg'
+                    : 'bg-gradient-to-r from-purple-600 via-cyan-500 to-purple-600 text-white hover:scale-[1.02] shadow-lg shadow-purple-500/20 shimmer'
               }`}>
               {isConnecting ? (
                 <><Loader2 size={24} className="animate-spin" /> CONNECTING...</>

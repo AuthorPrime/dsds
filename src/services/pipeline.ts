@@ -10,6 +10,7 @@ import {
   generateShowNotes,
 } from './ollama';
 import { generateThumbnail } from './thumbnail';
+import { saveBlob } from './fileManager';
 
 export type PipelineStage =
   | 'idle'
@@ -171,8 +172,22 @@ export class ProductionPipeline {
         message: 'Generating branded thumbnail...',
       });
       const thumbnailDataUrl = generateThumbnail({ title });
-      // Store the data URL as the thumbnail "file" — downstream can download or display it
-      const thumbnailFile = thumbnailDataUrl || undefined;
+      let thumbnailFile = thumbnailDataUrl || undefined;
+
+      // Save thumbnail to organized output folder
+      if (thumbnailDataUrl) {
+        try {
+          const res = await fetch(thumbnailDataUrl);
+          const blob = await res.blob();
+          const slug = (title || 'episode').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 60);
+          const savedPath = await saveBlob('thumbnails', `${slug}_thumbnail.png`, blob);
+          console.log(`Thumbnail saved: ${savedPath}`);
+          // Keep data URL for display, but also record path
+          thumbnailFile = thumbnailDataUrl;
+        } catch (saveErr) {
+          console.warn('Could not save thumbnail to output folder:', saveErr);
+        }
+      }
 
       // Stage 7: Package
       this.update({

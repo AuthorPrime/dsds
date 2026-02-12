@@ -10,6 +10,7 @@ import {
   Mic, MicOff, AlertCircle,
 } from 'lucide-react';
 import { getSettings } from '../../hooks/useSettings';
+import { saveFile } from '../../services/fileManager';
 
 interface TranscriptFile {
   id: string;
@@ -138,14 +139,9 @@ export function TranscribeTab() {
     navigator.clipboard.writeText(text).catch(() => {});
   };
 
-  const downloadTranscript = (name: string, text: string) => {
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = name.replace(/\.[^.]+$/, '') + '.txt';
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadTranscript = async (name: string, text: string) => {
+    const filename = name.replace(/\.[^.]+$/, '') + '.txt';
+    await saveFile('transcripts', filename, text);
   };
 
   // Live transcription via Web Speech API

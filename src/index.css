@@ -92,3 +92,74 @@ input[type="range"]:disabled::-webkit-slider-thumb {
 .pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
+
+/* Red pulse glow for REC indicator */
+@keyframes pulse-glow-red {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(239, 68, 68, 0.8), 0 0 48px rgba(239, 68, 68, 0.3);
+  }
+}
+
+.pulse-glow-red {
+  animation: pulse-glow-red 1.5s ease-in-out infinite;
+}
+
+/* Purple pulse glow for AI activity */
+@keyframes pulse-glow-purple {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 40px rgba(168, 85, 247, 0.2);
+  }
+}
+
+.pulse-glow-purple {
+  animation: pulse-glow-purple 2s ease-in-out infinite;
+}
+
+/* Shimmer for CTA buttons */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.shimmer {
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Breathing animation for idle visualizer */
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+/* Speaking ring pulse */
+@keyframes speaking-ring {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(34, 211, 238, 0);
+  }
+}
+
+.speaking-ring {
+  animation: speaking-ring 1.2s ease-in-out infinite;
+}

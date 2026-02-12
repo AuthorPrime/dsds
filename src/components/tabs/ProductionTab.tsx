@@ -4,11 +4,15 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Wand2, Play, RotateCcw, Copy, Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import {
+  Wand2, Play, RotateCcw, Copy, Check, ChevronDown, ChevronUp, Loader2,
+  FileText, Hash, BookOpen, Share2, Image, Package, CheckCircle, Download,
+} from 'lucide-react';
 import { ProductionPipeline } from '../../services/pipeline';
-import type { PipelineState, EpisodePackage } from '../../services/pipeline';
+import type { PipelineState, PipelineStage, EpisodePackage } from '../../services/pipeline';
 import { isOllamaAvailable, listModels } from '../../services/ollama';
 import { eventBus, EVENTS } from '../../services/eventBus';
+import { saveBlob } from '../../services/fileManager';
 
 const pipeline = new ProductionPipeline();
 
@@ -24,6 +28,29 @@ const STAGE_LABELS: Record<string, string> = {
   complete: 'Episode complete!',
   error: 'Error occurred',
 };
+
+// Pipeline step definitions for the stepper
+const PIPELINE_STEPS: { stage: PipelineStage; label: string; icon: typeof FileText }[] = [
+  { stage: 'transcribing', label: 'Transcript', icon: FileText },
+  { stage: 'generating_title', label: 'Title', icon: Hash },
+  { stage: 'generating_description', label: 'Description', icon: BookOpen },
+  { stage: 'generating_show_notes', label: 'Notes', icon: FileText },
+  { stage: 'generating_social', label: 'Social', icon: Share2 },
+  { stage: 'generating_thumbnail', label: 'Thumbnail', icon: Image },
+  { stage: 'packaging', label: 'Package', icon: Package },
+];
+
+function getStepStatus(step: PipelineStage, currentStage: PipelineStage): 'completed' | 'active' | 'pending' {
+  const order = PIPELINE_STEPS.map(s => s.stage);
+  const stepIdx = order.indexOf(step);
+  const currentIdx = order.indexOf(currentStage);
+
+  if (currentStage === 'complete') return 'completed';
+  if (currentStage === 'idle' || currentStage === 'error') return 'pending';
+  if (stepIdx < currentIdx) return 'completed';
+  if (stepIdx === currentIdx) return 'active';
+  return 'pending';
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -45,15 +72,16 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function CollapsibleSection({ title, children, defaultOpen = false }: {
+function CollapsibleSection({ title, children, defaultOpen = false, accentColor = 'border-l-purple-500' }: {
   title: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  accentColor?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-white/10 rounded-lg overflow-hidden">
+    <div className={`border border-white/10 rounded-lg overflow-hidden border-l-4 ${accentColor}`}>
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
@@ -109,6 +137,22 @@ export default function ProductionTab() {
       await pipeline.produce(transcript);
     } catch {
       // Error handled in pipeline state
+    }
+  }
+
+  async function handleDownloadThumbnail() {
+    if (!episode.thumbnailFile) return;
+    try {
+      const res = await fetch(episode.thumbnailFile);
+      const blob = await res.blob();
+      const slug = (episode.title || 'episode').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 60);
+      await saveBlob('thumbnails', `${slug}_thumbnail.png`, blob);
+    } catch {
+      // Fallback: direct download
+      const a = document.createElement('a');
+      a.href = episode.thumbnailFile!;
+      a.download = `${(episode.title || 'episode').replace(/\s+/g, '_')}_thumbnail.png`;
+      a.click();
     }
   }
 
@@ -170,10 +214,16 @@ export default function ProductionTab() {
         <button
           onClick={runPipeline}
           disabled={!ollamaReady || !transcript.trim() || isRunning}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-lg font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+            state.stage === 'complete'
+              ? 'bg-gradient-to-r from-emerald-600 to-cyan-600 text-white hover:opacity-90'
+              : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:opacity-90'
+          }`}
         >
           {isRunning ? (
             <><Loader2 size={18} className="animate-spin" /> Producing...</>
+          ) : state.stage === 'complete' ? (
+            <><CheckCircle size={18} /> Complete</>
           ) : (
             <><Wand2 size={18} /> Produce Episode</>
           )}
@@ -189,41 +239,99 @@ export default function ProductionTab() {
         )}
       </div>
 
-      {/* Progress Bar */}
+      {/* Pipeline Stepper */}
       {state.stage !== 'idle' && (
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-300">{STAGE_LABELS[state.stage] ?? state.stage}</span>
-            <span className="text-slate-400">{state.progress}%</span>
+        <div className="space-y-4">
+          {/* Step circles */}
+          <div className="flex items-center justify-between overflow-x-auto py-2">
+            {PIPELINE_STEPS.map((step, i) => {
+              const status = getStepStatus(step.stage, state.stage);
+              const Icon = step.icon;
+              return (
+                <div key={step.stage} className="flex items-center flex-1 min-w-0">
+                  <div className="flex flex-col items-center min-w-[48px]">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                      status === 'completed'
+                        ? 'bg-gradient-to-br from-purple-500 to-cyan-500 text-white shadow-lg shadow-purple-500/20'
+                        : status === 'active'
+                          ? 'border-2 border-cyan-400 text-cyan-400 pulse-glow'
+                          : 'border-2 border-gray-700 text-gray-600'
+                    }`}>
+                      {status === 'completed' ? (
+                        <Check size={16} />
+                      ) : status === 'active' ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Icon size={14} />
+                      )}
+                    </div>
+                    <span className={`text-[10px] mt-1 text-center whitespace-nowrap ${
+                      status === 'completed' ? 'text-cyan-400' :
+                      status === 'active' ? 'text-white font-medium' :
+                      'text-gray-600'
+                    }`}>
+                      {step.label}
+                    </span>
+                  </div>
+                  {/* Connector line */}
+                  {i < PIPELINE_STEPS.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-1 rounded transition-all ${
+                      status === 'completed'
+                        ? 'bg-gradient-to-r from-purple-500 to-cyan-500'
+                        : 'bg-gray-800 border-t border-dashed border-gray-700'
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
           </div>
-          <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                state.stage === 'error'
-                  ? 'bg-red-500'
-                  : state.stage === 'complete'
-                    ? 'bg-emerald-500'
-                    : 'bg-gradient-to-r from-purple-500 to-cyan-500'
-              }`}
-              style={{ width: `${state.progress}%` }}
-            />
+
+          {/* Progress text + bar */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">{STAGE_LABELS[state.stage] ?? state.stage}</span>
+              <span className="text-slate-400">{state.progress}%</span>
+            </div>
+            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  state.stage === 'error'
+                    ? 'bg-red-500'
+                    : state.stage === 'complete'
+                      ? 'bg-gradient-to-r from-emerald-500 to-cyan-500'
+                      : 'bg-gradient-to-r from-purple-500 to-cyan-500'
+                }`}
+                style={{ width: `${state.progress}%` }}
+              />
+            </div>
+            {state.error && (
+              <p className="text-sm text-red-400">{state.error}</p>
+            )}
           </div>
-          {state.error && (
-            <p className="text-sm text-red-400">{state.error}</p>
-          )}
         </div>
       )}
 
       {/* Results */}
       {(episode.title || episode.description || episode.showNotes || episode.socialPosts) && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
-            <Play size={18} className="text-purple-400" />
-            Episode Package
-          </h3>
+          {/* Episode header card */}
+          <div className="bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border border-purple-500/20 rounded-xl p-5">
+            <div className="flex items-center gap-3 mb-2">
+              <Play size={20} className="text-purple-400" />
+              <h3 className="text-lg font-bold text-white">Episode Package</h3>
+              {state.stage === 'complete' && (
+                <span className="ml-auto px-2.5 py-0.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full text-xs text-emerald-400 font-medium">
+                  Complete
+                </span>
+              )}
+            </div>
+            {episode.title && (
+              <p className="text-slate-300 text-sm">{episode.title}</p>
+            )}
+          </div>
 
           {episode.title && (
-            <CollapsibleSection title="Episode Title" defaultOpen>
+            <CollapsibleSection title="Episode Title" defaultOpen accentColor="border-l-cyan-500">
               <div className="flex items-start justify-between gap-2 pt-3">
                 <h4 className="text-xl font-bold text-white">{episode.title}</h4>
                 <CopyButton text={episode.title} />
@@ -232,7 +340,7 @@ export default function ProductionTab() {
           )}
 
           {episode.description && (
-            <CollapsibleSection title="Description" defaultOpen>
+            <CollapsibleSection title="Description" defaultOpen accentColor="border-l-purple-500">
               <div className="pt-3 space-y-2">
                 <div className="flex justify-end">
                   <CopyButton text={episode.description} />
@@ -243,7 +351,7 @@ export default function ProductionTab() {
           )}
 
           {episode.showNotes && (
-            <CollapsibleSection title="Show Notes">
+            <CollapsibleSection title="Show Notes" accentColor="border-l-amber-500">
               <div className="pt-3 space-y-2">
                 <div className="flex justify-end">
                   <CopyButton text={episode.showNotes} />
@@ -254,26 +362,33 @@ export default function ProductionTab() {
           )}
 
           {episode.thumbnailFile && (
-            <CollapsibleSection title="Episode Thumbnail" defaultOpen>
+            <CollapsibleSection title="Episode Thumbnail" defaultOpen accentColor="border-l-emerald-500">
               <div className="pt-3 space-y-3">
-                <img
-                  src={episode.thumbnailFile}
-                  alt="Episode thumbnail"
-                  className="rounded-lg border border-white/10 w-full max-w-lg"
-                />
-                <a
-                  href={episode.thumbnailFile}
-                  download={`${(episode.title || 'episode').replace(/\s+/g, '_')}_thumbnail.png`}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors text-sm text-slate-300"
-                >
-                  <RotateCcw size={14} /> Download Thumbnail
-                </a>
+                {/* Thumbnail card with hover effect */}
+                <div className="relative group w-full max-w-lg rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                  <img
+                    src={episode.thumbnailFile}
+                    alt="Episode thumbnail"
+                    className="w-full transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/70 rounded text-[10px] text-slate-300 font-mono">
+                    1280 × 720
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDownloadThumbnail}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors text-sm text-slate-300"
+                  >
+                    <Download size={14} /> Save Thumbnail
+                  </button>
+                </div>
               </div>
             </CollapsibleSection>
           )}
 
           {episode.socialPosts && (
-            <CollapsibleSection title="Social Media Posts">
+            <CollapsibleSection title="Social Media Posts" accentColor="border-l-pink-500">
               <div className="pt-3 space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">

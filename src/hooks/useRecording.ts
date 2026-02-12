@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { createAudioContext, enumerateAudioDevices } from '../utils/audioUtils';
+import { saveBlob } from '../services/fileManager';
 
 export type RecordingSource = 'camera' | 'screen' | 'visualizer';
 
@@ -160,20 +161,12 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
     }
   }, [isRecording]);
 
-  const downloadRecording = (blob: Blob) => {
-    const url = URL.createObjectURL(blob);
+  const downloadRecording = async (blob: Blob) => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `sovereign-studio-${timestamp}.webm`;
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    console.log(`Recording saved: ${filename}`);
+    const savedPath = await saveBlob('recordings', filename, blob);
+    console.log(`Recording saved: ${savedPath}`);
     console.log('Note: Convert to MP4 using: ffmpeg -i recording.webm -c:v libx264 -c:a aac output.mp4');
   };
 

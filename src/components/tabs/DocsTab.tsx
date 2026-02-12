@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Upload, FileText, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Copy, Check, Download } from 'lucide-react';
+import { renderMarkdown } from '../../utils/markdown';
+import { saveFile, saveBlob } from '../../services/fileManager';
 
 interface DocFile {
   id: string;
@@ -7,46 +9,6 @@ interface DocFile {
   type: 'pdf' | 'md' | 'txt';
   content: string;      // raw text content (md/txt) or object URL (pdf)
   objectUrl?: string;    // blob URL for PDFs
-}
-
-/**
- * Minimal markdown-to-HTML renderer.
- * Handles headings, bold, italic, code blocks, inline code, links, lists, hr, blockquotes.
- */
-function renderMarkdown(md: string): string {
-  let html = md
-    // Fenced code blocks
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-gray-100 rounded p-3 overflow-x-auto text-sm my-3"><code>$2</code></pre>')
-    // Headings
-    .replace(/^######\s+(.+)$/gm, '<h6 class="text-sm font-bold mt-4 mb-1">$1</h6>')
-    .replace(/^#####\s+(.+)$/gm, '<h5 class="text-sm font-bold mt-4 mb-1">$1</h5>')
-    .replace(/^####\s+(.+)$/gm, '<h4 class="text-base font-bold mt-4 mb-1">$1</h4>')
-    .replace(/^###\s+(.+)$/gm, '<h3 class="text-lg font-bold mt-5 mb-2">$1</h3>')
-    .replace(/^##\s+(.+)$/gm, '<h2 class="text-xl font-bold mt-6 mb-2">$1</h2>')
-    .replace(/^#\s+(.+)$/gm, '<h1 class="text-2xl font-bold mt-6 mb-3">$1</h1>')
-    // Horizontal rules
-    .replace(/^---+$/gm, '<hr class="my-4 border-gray-300" />')
-    // Blockquotes
-    .replace(/^>\s+(.+)$/gm, '<blockquote class="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-2">$1</blockquote>')
-    // Bold and italic
-    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 rounded px-1.5 py-0.5 text-sm font-mono">$1</code>')
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 underline" target="_blank" rel="noopener">$1</a>')
-    // Unordered lists
-    .replace(/^[-*]\s+(.+)$/gm, '<li class="ml-4 list-disc">$1</li>')
-    // Ordered lists
-    .replace(/^\d+\.\s+(.+)$/gm, '<li class="ml-4 list-decimal">$1</li>')
-    // Paragraphs (lines that aren't already wrapped)
-    .replace(/^(?!<[a-z])((?!^\s*$).+)$/gm, '<p class="my-1.5 leading-relaxed">$1</p>');
-
-  // Wrap consecutive <li> items
-  html = html.replace(/((?:<li[^>]*>.*<\/li>\s*)+)/g, '<ul class="my-2">$1</ul>');
-
-  return html;
 }
 
 export function DocsTab() {
@@ -129,21 +91,23 @@ export function DocsTab() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!selectedFile) return;
     if (selectedFile.type === 'pdf' && selectedFile.objectUrl) {
-      const a = document.createElement('a');
-      a.href = selectedFile.objectUrl;
-      a.download = selectedFile.name;
-      a.click();
+      // PDFs: fetch the blob from the object URL and save
+      try {
+        const response = await fetch(selectedFile.objectUrl);
+        const blob = await response.blob();
+        await saveBlob('publications', selectedFile.name, blob);
+      } catch {
+        // Fallback: direct download
+        const a = document.createElement('a');
+        a.href = selectedFile.objectUrl;
+        a.download = selectedFile.name;
+        a.click();
+      }
     } else {
-      const blob = new Blob([selectedFile.content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = selectedFile.name;
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveFile('publications', selectedFile.name, selectedFile.content);
     }
   };
 
@@ -178,7 +142,7 @@ export function DocsTab() {
         >
           <div
             className="prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedFile.content) }}
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedFile.content, 'light') }}
           />
         </div>
       );

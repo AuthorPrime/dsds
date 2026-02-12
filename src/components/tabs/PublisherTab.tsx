@@ -7,11 +7,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   BookOpen, FileText, FileImage, Sparkles, Download, Copy, Check,
-  AlignLeft, GraduationCap, Newspaper, PenTool, Loader2, Volume2, VolumeX,
+  AlignLeft, GraduationCap, Newspaper, PenTool, Loader2, Volume2, VolumeX, FolderUp,
 } from 'lucide-react';
 import { enhanceWriting, generateResearchSummary, chat, isOllamaAvailable, listModels } from '../../services/ollama';
 import { speak, stopSpeaking, isSpeaking as checkSpeaking } from '../../services/tts';
 import { BRANDING } from '../../branding';
+import { saveFile, isTauri } from '../../services/fileManager';
+import { renderMarkdown } from '../../utils/markdown';
+import { FolderBrowser } from '../shared/FolderBrowser';
 
 type DocumentType = 'article' | 'research' | 'pamphlet' | 'booklet' | 'transcript';
 type WritingStyle = 'academic' | 'editorial' | 'casual' | 'technical';
@@ -25,12 +28,12 @@ interface DocumentState {
   isProcessing: boolean;
 }
 
-const DOC_TYPES: { value: DocumentType; label: string; icon: typeof BookOpen; description: string }[] = [
-  { value: 'article', label: 'Article', icon: Newspaper, description: 'Blog post, editorial, or feature article' },
-  { value: 'research', label: 'Research Paper', icon: GraduationCap, description: 'Academic-style research summary' },
-  { value: 'pamphlet', label: 'Pamphlet', icon: FileText, description: 'Short informational document' },
-  { value: 'booklet', label: 'Booklet', icon: BookOpen, description: 'Multi-chapter instructional guide' },
-  { value: 'transcript', label: 'Transcript → Doc', icon: AlignLeft, description: 'Convert a transcript into a polished document' },
+const DOC_TYPES: { value: DocumentType; label: string; icon: typeof BookOpen; description: string; accent: string; activeBg: string }[] = [
+  { value: 'article', label: 'Article', icon: Newspaper, description: 'Blog post, editorial, or feature article', accent: 'border-cyan-500/50 text-cyan-300', activeBg: 'bg-cyan-500/10' },
+  { value: 'research', label: 'Research Paper', icon: GraduationCap, description: 'Academic-style research summary', accent: 'border-purple-500/50 text-purple-300', activeBg: 'bg-purple-500/10' },
+  { value: 'pamphlet', label: 'Pamphlet', icon: FileText, description: 'Short informational document', accent: 'border-amber-500/50 text-amber-300', activeBg: 'bg-amber-500/10' },
+  { value: 'booklet', label: 'Booklet', icon: BookOpen, description: 'Multi-chapter instructional guide', accent: 'border-emerald-500/50 text-emerald-300', activeBg: 'bg-emerald-500/10' },
+  { value: 'transcript', label: 'Transcript → Doc', icon: AlignLeft, description: 'Convert a transcript into a polished document', accent: 'border-slate-400/50 text-slate-300', activeBg: 'bg-slate-500/10' },
 ];
 
 const STYLES: { value: WritingStyle; label: string }[] = [
@@ -152,7 +155,7 @@ Format in clean Markdown with clear heading hierarchy.`,
     }
   }
 
-  function exportAsMarkdown() {
+  async function exportAsMarkdown() {
     const content = doc.enhanced || doc.content;
     const header = `---
 title: "${doc.title || 'Untitled'}"
@@ -163,16 +166,11 @@ date: "${new Date().toISOString().split('T')[0]}"
 ---
 
 `;
-    const blob = new Blob([header + content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(doc.title || 'untitled').toLowerCase().replace(/\s+/g, '-')}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = `${(doc.title || 'untitled').toLowerCase().replace(/\s+/g, '-')}.md`;
+    await saveFile('publications', filename, header + content);
   }
 
-  function exportAsHTML() {
+  async function exportAsHTML() {
     const content = doc.enhanced || doc.content;
     // Simple markdown-to-html (headers, bold, italic, lists)
     let html = content
@@ -217,13 +215,8 @@ date: "${new Date().toISOString().split('T')[0]}"
 </body>
 </html>`;
 
-    const blob = new Blob([fullHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(doc.title || 'untitled').toLowerCase().replace(/\s+/g, '-')}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = `${(doc.title || 'untitled').toLowerCase().replace(/\s+/g, '-')}.html`;
+    await saveFile('publications', filename, fullHtml);
   }
 
   return (
@@ -269,7 +262,7 @@ date: "${new Date().toISOString().split('T')[0]}"
       )}
 
       {/* Document Type Selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {DOC_TYPES.map(dt => {
           const Icon = dt.icon;
           const active = doc.type === dt.value;
@@ -277,14 +270,17 @@ date: "${new Date().toISOString().split('T')[0]}"
             <button
               key={dt.value}
               onClick={() => setDoc(d => ({ ...d, type: dt.value }))}
-              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-all ${
+              className={`flex items-start gap-3 p-4 rounded-xl border transition-all text-left ${
                 active
-                  ? 'border-purple-500/50 bg-purple-500/10 text-purple-300'
+                  ? `${dt.accent} ${dt.activeBg} shadow-lg`
                   : 'border-white/10 hover:border-white/20 text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Icon size={20} />
-              <span className="text-xs font-medium">{dt.label}</span>
+              <Icon size={22} className={`flex-shrink-0 mt-0.5 ${active ? '' : 'opacity-60'}`} />
+              <div className="min-w-0">
+                <span className="text-sm font-semibold block">{dt.label}</span>
+                <span className="text-xs text-slate-500 block mt-0.5">{dt.description}</span>
+              </div>
             </button>
           );
         })}
@@ -356,9 +352,18 @@ date: "${new Date().toISOString().split('T')[0]}"
               <div className="flex justify-end gap-2">
                 <CopyButton text={doc.enhanced} />
               </div>
-              <div className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap">
-                {doc.enhanced}
-              </div>
+              <div
+                className="prose prose-invert prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(doc.enhanced, 'dark') }}
+              />
+            </div>
+          ) : doc.content.trim() ? (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500 mb-2">Source preview (Markdown rendered):</p>
+              <div
+                className="prose prose-invert prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(doc.content, 'dark') }}
+              />
             </div>
           ) : (
             <div className="flex items-center justify-center h-64 text-slate-500">
@@ -419,12 +424,56 @@ date: "${new Date().toISOString().split('T')[0]}"
         </div>
       </div>
 
-      {/* Word count */}
-      <div className="text-xs text-slate-500 flex gap-4">
-        <span>Source: {doc.content.split(/\s+/).filter(Boolean).length} words</span>
+      {/* Word / Character count pills */}
+      <div className="flex flex-wrap gap-2">
+        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full text-xs text-slate-400">
+          {doc.content.split(/\s+/).filter(Boolean).length} words
+        </span>
+        <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full text-xs text-slate-400">
+          {doc.content.length} chars
+        </span>
         {doc.enhanced && (
-          <span>Enhanced: {doc.enhanced.split(/\s+/).filter(Boolean).length} words</span>
+          <>
+            <span className="px-2.5 py-1 bg-purple-500/10 border border-purple-500/30 rounded-full text-xs text-purple-300">
+              Enhanced: {doc.enhanced.split(/\s+/).filter(Boolean).length} words
+            </span>
+            <span className="px-2.5 py-1 bg-purple-500/10 border border-purple-500/30 rounded-full text-xs text-purple-300">
+              {doc.enhanced.length} chars
+            </span>
+          </>
         )}
+      </div>
+
+      {/* Import Source Documents */}
+      <div className="border-t border-white/10 pt-6">
+        <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-3">
+          <FolderUp size={16} /> Import Source Documents
+        </h3>
+        <FolderBrowser
+          label="Browse folder for source documents"
+          fileFilter={['.txt', '.md', '.html', '.csv', '.json']}
+          onFilesSelected={async (files) => {
+            // Read file content: use browser File objects if available, otherwise Tauri FS
+            const texts: string[] = [];
+            for (const f of files) {
+              if (f.file) {
+                try { texts.push(await f.file.text()); } catch { /* skip */ }
+              } else if (isTauri()) {
+                try {
+                  const { readTextFile } = await import('@tauri-apps/plugin-fs');
+                  texts.push(await readTextFile(f.path));
+                } catch { /* skip */ }
+              }
+            }
+            const combined = texts.filter(Boolean).join('\n\n---\n\n');
+            if (combined.trim()) {
+              setDoc(d => ({
+                ...d,
+                content: d.content ? `${d.content}\n\n---\n\n${combined}` : combined,
+              }));
+            }
+          }}
+        />
       </div>
     </div>
   );

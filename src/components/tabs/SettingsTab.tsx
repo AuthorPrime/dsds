@@ -7,9 +7,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Key, Volume2, Cpu, FolderOpen, Save, RefreshCw,
-  Mic, MessageSquare, Users, Check, AlertCircle, Loader2,
+  Mic, MessageSquare, Users, Check, AlertCircle, Loader2, FolderPlus,
 } from 'lucide-react';
 import type { LLMProvider, TTSProvider, STTProvider, CompanionConfig } from '../../types';
+import { FilePickerButton } from '../shared/FilePickerButton';
+import { ensureDirectories, getOutputStructure } from '../../services/fileManager';
 import {
   loadLLMProviders,
   loadTTSProviders,
@@ -102,6 +104,8 @@ function StatusDot({ available, label }: { available: boolean | null; label: str
 export function SettingsTab() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [saved, setSaved] = useState(false);
+  const [dirsCreated, setDirsCreated] = useState(false);
+  const [creatingDirs, setCreatingDirs] = useState(false);
 
   // Loaded provider configs
   const [llmProviders, setLlmProviders] = useState<Record<string, LLMProvider>>({});
@@ -516,12 +520,64 @@ export function SettingsTab() {
             </div>
             <div>
               <label className="block text-sm text-slate-400 mb-2">Default Output Folder</label>
-              <input
-                type="text"
-                value={settings.outputFolder}
-                onChange={(e) => update('outputFolder', e.target.value)}
-                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={settings.outputFolder}
+                  readOnly
+                  className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:outline-none cursor-default"
+                />
+                <FilePickerButton
+                  mode="folder"
+                  label="Browse"
+                  currentPath={settings.outputFolder}
+                  onSelect={(path) => {
+                    if (typeof path === 'string') {
+                      update('outputFolder', path);
+                      setDirsCreated(false);
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-xs text-slate-600 mt-1">All recordings, transcripts, and exports save here</p>
+            </div>
+
+            {/* Create Folders button */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={async () => {
+                  setCreatingDirs(true);
+                  try {
+                    await ensureDirectories();
+                    setDirsCreated(true);
+                    setTimeout(() => setDirsCreated(false), 3000);
+                  } catch (err) {
+                    console.error('Failed to create directories:', err);
+                  } finally {
+                    setCreatingDirs(false);
+                  }
+                }}
+                disabled={creatingDirs}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-sm text-slate-300 transition-colors disabled:opacity-50"
+              >
+                {creatingDirs ? (
+                  <><Loader2 size={14} className="animate-spin" /> Creating...</>
+                ) : dirsCreated ? (
+                  <><Check size={14} className="text-emerald-400" /> Folders Ready</>
+                ) : (
+                  <><FolderPlus size={14} /> Create Output Folders</>
+                )}
+              </button>
+            </div>
+
+            {/* Folder structure info */}
+            <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+              <p className="text-xs text-slate-400 mb-2 font-medium">Output folder structure:</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500 font-mono">
+                {getOutputStructure().map(s => (
+                  <span key={s.folder}>📁 {s.folder}/ <span className="text-slate-600">— {s.description}</span></span>
+                ))}
+              </div>
             </div>
           </div>
         </section>
