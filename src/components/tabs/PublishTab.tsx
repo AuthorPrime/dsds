@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FolderOpen, FileText, Book, CheckCircle, Loader2, Eye, AlertCircle, RefreshCw } from 'lucide-react';
+import { getSettings } from '../../hooks/useSettings';
 
 interface MarkdownFile {
   name: string;
@@ -10,9 +11,26 @@ interface MarkdownFile {
 // Check if running in Tauri
 const isTauri = () => '__TAURI__' in window;
 
+// Resolve sensible default paths based on platform
+function getDefaultPaths() {
+  const settings = getSettings();
+  const baseOutput = settings.outputFolder || '';
+  // Use output folder from settings if available, otherwise use platform-aware defaults
+  if (baseOutput) {
+    return { input: baseOutput, output: baseOutput };
+  }
+  const isWin = navigator.userAgent.includes('Windows');
+  const home = isWin ? 'C:\\Users\\Author Prime\\Documents' : '/home/author_prime/Documents';
+  return {
+    input: `${home}/Apollo_Publisher/input`,
+    output: `${home}/Apollo_Publisher/exports`,
+  };
+}
+
 export function PublishTab() {
-  const [inputFolder, setInputFolder] = useState('/home/n0t/Desktop/Apollo_Publisher/input');
-  const [outputFolder, setOutputFolder] = useState('/home/n0t/Desktop/Apollo_Publisher/exports');
+  const defaults = getDefaultPaths();
+  const [inputFolder, setInputFolder] = useState(defaults.input);
+  const [outputFolder, setOutputFolder] = useState(defaults.output);
   const [bookName, setBookName] = useState('My Book');
   const [files, setFiles] = useState<MarkdownFile[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -100,10 +118,12 @@ export function PublishTab() {
         const safeBookName = bookName.replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_');
         addLog(`Processing ${selectedFiles.length} files for "${bookName}"`);
 
-        // Try to run the Apollo Publisher Python script
-        const scriptPath = '/home/n0t/Desktop/Apollo_Publisher/apollo_book_author.py';
+        // Locate Apollo Publisher script relative to input folder or use bundled script
+        const isWin = navigator.userAgent.includes('Windows');
+        const scriptPath = `${inputFolder}${isWin ? '\\' : '/'}apollo_book_author.py`;
+        const pythonCmd = isWin ? 'python' : 'python3';
 
-        const command = Command.create('python3', [
+        const command = Command.create(pythonCmd, [
           scriptPath,
           '--book-name', bookName,
           '--input-dir', inputFolder,

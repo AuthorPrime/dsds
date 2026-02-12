@@ -7,6 +7,7 @@ import { getSettings } from '../../hooks/useSettings';
 import { loadCompanion } from '../../utils/aiProviders';
 import { enumerateAudioDevices } from '../../utils/audioUtils';
 import { speak } from '../../services/tts';
+import { eventBus, EVENTS } from '../../services/eventBus';
 import AudioVisualizer from '../AudioVisualizer';
 import { ConnectionState } from '../../types';
 import type { CompanionConfig } from '../../types';
@@ -202,6 +203,14 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
       setIsSessionActive(false);
       setMicError(null);
       setSpeechRecError(null);
+
+      // Auto-transcribe: emit accumulated chat as transcript for Production tab
+      if (settings.autoTranscribe && chatMessages.length > 0) {
+        const transcript = chatMessages
+          .map(m => `${m.role === 'user' ? 'Host' : companionName}: ${m.content}`)
+          .join('\n\n');
+        eventBus.emit(EVENTS.SESSION_TRANSCRIPT_READY, transcript);
+      }
     } else {
       setMicError(null);
       setSpeechRecError(null);

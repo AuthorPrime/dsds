@@ -19,6 +19,10 @@ export interface AppSettings {
   outputFolder: string;
 }
 
+// Platform-aware default paths
+const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
+const homePath = isWindows ? 'C:\\Users\\Author Prime' : '/home/author_prime';
+
 const DEFAULTS: AppSettings = {
   llmProvider: 'ollama',
   llmModel: 'llama3.2',
@@ -31,8 +35,8 @@ const DEFAULTS: AppSettings = {
   anthropicApiKey: '',
   silenceThreshold: 2000,
   autoTranscribe: false,
-  localModelPath: '/home/n0t/.ollama/models',
-  outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
+  localModelPath: isWindows ? `${homePath}\\.ollama\\models` : `${homePath}/.ollama/models`,
+  outputFolder: isWindows ? `${homePath}\\Desktop\\Sovereign_Studio_Output` : `${homePath}/Desktop/Sovereign_Studio_Output`,
 };
 
 export function getSettings(): AppSettings {

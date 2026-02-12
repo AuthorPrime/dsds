@@ -8,6 +8,7 @@ import { Wand2, Play, RotateCcw, Copy, Check, ChevronDown, ChevronUp, Loader2 } 
 import { ProductionPipeline } from '../../services/pipeline';
 import type { PipelineState, EpisodePackage } from '../../services/pipeline';
 import { isOllamaAvailable, listModels } from '../../services/ollama';
+import { eventBus, EVENTS } from '../../services/eventBus';
 
 const pipeline = new ProductionPipeline();
 
@@ -76,6 +77,13 @@ export default function ProductionTab() {
     const unsub = pipeline.subscribe(setState);
     checkOllama();
     return unsub;
+  }, []);
+
+  // Listen for auto-transcribe events from Studio tab
+  useEffect(() => {
+    return eventBus.on<string>(EVENTS.SESSION_TRANSCRIPT_READY, (text) => {
+      setTranscript(prev => prev ? `${prev}\n\n${text}` : text);
+    });
   }, []);
 
   // Keep pipeline model in sync with UI selection
@@ -241,6 +249,25 @@ export default function ProductionTab() {
                   <CopyButton text={episode.showNotes} />
                 </div>
                 <div className="text-sm text-slate-300 whitespace-pre-wrap font-mono">{episode.showNotes}</div>
+              </div>
+            </CollapsibleSection>
+          )}
+
+          {episode.thumbnailFile && (
+            <CollapsibleSection title="Episode Thumbnail" defaultOpen>
+              <div className="pt-3 space-y-3">
+                <img
+                  src={episode.thumbnailFile}
+                  alt="Episode thumbnail"
+                  className="rounded-lg border border-white/10 w-full max-w-lg"
+                />
+                <a
+                  href={episode.thumbnailFile}
+                  download={`${(episode.title || 'episode').replace(/\s+/g, '_')}_thumbnail.png`}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors text-sm text-slate-300"
+                >
+                  <RotateCcw size={14} /> Download Thumbnail
+                </a>
               </div>
             </CollapsibleSection>
           )}

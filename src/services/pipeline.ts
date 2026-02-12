@@ -9,6 +9,7 @@ import {
   generateSocialPosts,
   generateShowNotes,
 } from './ollama';
+import { generateThumbnail } from './thumbnail';
 
 export type PipelineStage =
   | 'idle'
@@ -163,13 +164,15 @@ export class ProductionPipeline {
         episode: { ...this.state.episode, socialPosts },
       });
 
-      // Stage 6: Thumbnail placeholder
+      // Stage 6: Generate branded thumbnail
       this.update({
         stage: 'generating_thumbnail',
         progress: 90,
-        message: 'Preparing thumbnail...',
+        message: 'Generating branded thumbnail...',
       });
-      // TODO: Canvas-based thumbnail generation
+      const thumbnailDataUrl = generateThumbnail({ title });
+      // Store the data URL as the thumbnail "file" — downstream can download or display it
+      const thumbnailFile = thumbnailDataUrl || undefined;
 
       // Stage 7: Package
       this.update({
@@ -188,6 +191,7 @@ export class ProductionPipeline {
         duration: 0,
         audioFile,
         videoFile,
+        thumbnailFile,
         show: 'My Pretend Life',
         host: 'Author Prime',
         organization: 'Digital Sovereign Society',
