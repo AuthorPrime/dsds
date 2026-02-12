@@ -4,7 +4,7 @@
  * When the user speaks, their transcribed text is sent to Ollama for a response.
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { ConnectionState } from '../types';
 import { isOllamaAvailable, chatStream } from '../services/ollama';
 import type { OllamaMessage } from '../services/ollama';
@@ -18,9 +18,10 @@ export interface ChatMessage {
 interface UseOllamaChatProps {
   model: string;
   systemPrompt: string;
+  onResponseComplete?: (text: string) => void;
 }
 
-export function useOllamaChat({ model, systemPrompt }: UseOllamaChatProps) {
+export function useOllamaChat({ model, systemPrompt, onResponseComplete }: UseOllamaChatProps) {
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -29,6 +30,11 @@ export function useOllamaChat({ model, systemPrompt }: UseOllamaChatProps) {
 
   const abortRef = useRef<AbortController | null>(null);
   const historyRef = useRef<OllamaMessage[]>([]);
+  const onResponseCompleteRef = useRef(onResponseComplete);
+
+  useEffect(() => {
+    onResponseCompleteRef.current = onResponseComplete;
+  }, [onResponseComplete]);
 
   const connect = useCallback(async () => {
     setConnectionState(ConnectionState.CONNECTING);
@@ -80,6 +86,11 @@ export function useOllamaChat({ model, systemPrompt }: UseOllamaChatProps) {
       setMessages(prev => [...prev, assistantMsg]);
       historyRef.current.push({ role: 'assistant', content: fullResponse });
       setCurrentResponse('');
+
+      // Fire TTS callback with the completed response
+      if (fullResponse.trim() && onResponseCompleteRef.current) {
+        onResponseCompleteRef.current(fullResponse.trim());
+      }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
       const msg = err instanceof Error ? err.message : 'Ollama chat error';

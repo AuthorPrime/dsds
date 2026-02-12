@@ -6,6 +6,7 @@ import { useRecording } from '../../hooks/useRecording';
 import { getSettings } from '../../hooks/useSettings';
 import { loadCompanion } from '../../utils/aiProviders';
 import { enumerateAudioDevices } from '../../utils/audioUtils';
+import { speak } from '../../services/tts';
 import AudioVisualizer from '../AudioVisualizer';
 import { ConnectionState } from '../../types';
 import type { CompanionConfig } from '../../types';
@@ -45,10 +46,12 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
   const [recordingSource, setRecordingSource] = useState<'camera' | 'screen'>('camera');
   const [peerConnected] = useState(false);
   const [chatInput, setChatInput] = useState('');
+  const [speechRecError, setSpeechRecError] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const isSessionActiveRef = useRef(false);
 
   // Load companion config on mount
   useEffect(() => {
@@ -93,6 +96,9 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
   } = useOllamaChat({
     model: settings.llmModel,
     systemPrompt: companion?.personality.systemPrompt ?? DEFAULT_PERSONA.systemInstruction,
+    onResponseComplete: useCallback((text: string) => {
+      speak(text).catch(err => console.error('TTS error:', err));
+    }, []),
   });
 
   const connectionState = isOllamaMode ? ollamaState : geminiState;
@@ -115,8 +121,12 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
   const startSpeechRecognition = useCallback(() => {
     if (!isOllamaMode) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      setSpeechRecError('Web Speech API not supported. Use Chrome or Edge for voice input.');
+      return;
+    }
 
+    setSpeechRecError(null);
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = false;
@@ -132,20 +142,23 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
       }
     };
 
-    recognition.onerror = (event: Event) => {
-      console.error('Speech recognition error:', event);
+    recognition.onerror = (event: Event & { error?: string }) => {
+      const errorType = event.error || 'unknown';
+      if (errorType === 'no-speech' || errorType === 'aborted') return;
+      console.error('Speech recognition error:', errorType);
+      setSpeechRecError(`Speech recognition error: ${errorType}`);
     };
 
     recognition.onend = () => {
-      // Restart if session still active
-      if (isSessionActive && recognitionRef.current) {
+      // Use ref to avoid stale closure
+      if (isSessionActiveRef.current && recognitionRef.current) {
         try { recognitionRef.current.start(); } catch { /* already started */ }
       }
     };
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [isOllamaMode, aiEnabled, sendMessage, isSessionActive]);
+  }, [isOllamaMode, aiEnabled, sendMessage]);
 
   const stopSpeechRecognition = useCallback(() => {
     if (recognitionRef.current) {
@@ -181,14 +194,17 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
 
   const handleToggleSession = async () => {
     if (isSessionActive) {
+      isSessionActiveRef.current = false;
       stopListening();
       stopSpeechRecognition();
       if (isOllamaMode) disconnectOllama();
       else disconnectGemini();
       setIsSessionActive(false);
       setMicError(null);
+      setSpeechRecError(null);
     } else {
       setMicError(null);
+      setSpeechRecError(null);
       try {
         await enumerateAudioDevices();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -206,6 +222,7 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
           }
         }
         setIsSessionActive(true);
+        isSessionActiveRef.current = true;
       } catch (err) {
         console.error('Microphone error:', err);
         if (err instanceof Error) {
@@ -449,10 +466,10 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
               {isSessionActive ? <><MicOff size={24} /> END SESSION</> : <><Radio size={24} /> START LIVE SESSION</>}
             </button>
 
-            {(error || micError) && (
+            {(error || micError || speechRecError) && (
               <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-4 flex items-center gap-3">
                 <AlertCircle className="text-red-500" />
-                <p className="text-red-400">{error || micError}</p>
+                <p className="text-red-400">{error || micError || speechRecError}</p>
               </div>
             )}
 

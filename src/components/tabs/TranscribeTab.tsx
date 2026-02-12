@@ -31,6 +31,7 @@ export function TranscribeTab() {
   const [isLiveTranscribing, setIsLiveTranscribing] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [interimText, setInterimText] = useState('');
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -187,8 +188,12 @@ export function TranscribeTab() {
       if (interim) setInterimText(interim);
     };
 
-    recognition.onerror = (event: Event) => {
-      console.error('Speech recognition error:', event);
+    recognition.onerror = (event: Event & { error?: string }) => {
+      const errorType = event.error || 'unknown';
+      if (errorType === 'no-speech') return; // Normal during pauses
+      if (errorType === 'aborted') return;
+      console.error('Speech recognition error:', errorType);
+      setSpeechError(`Speech recognition error: ${errorType}`);
     };
 
     recognition.onend = () => {
@@ -223,7 +228,7 @@ export function TranscribeTab() {
         {/* Live Transcribe Button */}
         <div className="p-4 border-b border-gray-800">
           <button
-            onClick={toggleLiveTranscription}
+            onClick={() => { setSpeechError(null); toggleLiveTranscription(); }}
             className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${
               isLiveTranscribing
                 ? 'bg-red-500/20 text-red-400 border border-red-500/50'
@@ -232,6 +237,12 @@ export function TranscribeTab() {
           >
             {isLiveTranscribing ? <><MicOff size={16} /> Stop Live</> : <><Mic size={16} /> Live Transcribe</>}
           </button>
+          {speechError && (
+            <div className="mt-2 p-2 bg-red-900/20 border border-red-500/30 rounded-lg flex items-center gap-2">
+              <AlertCircle size={14} className="text-red-400 flex-shrink-0" />
+              <p className="text-xs text-red-400">{speechError}</p>
+            </div>
+          )}
         </div>
 
         {/* Drop Zone for file upload */}
