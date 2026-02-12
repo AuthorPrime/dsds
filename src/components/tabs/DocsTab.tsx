@@ -153,13 +153,20 @@ export function DocsTab() {
 
     if (selectedFile.type === 'pdf') {
       return (
-        <iframe
-          ref={iframeRef}
-          src={`${selectedFile.objectUrl}#page=${currentPage}`}
-          className="w-full h-full border-0"
-          title={selectedFile.name}
-          style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top left', width: `${10000 / zoom}%`, height: `${10000 / zoom}%` }}
-        />
+        <div className="w-full h-full overflow-auto">
+          <iframe
+            ref={iframeRef}
+            src={`${selectedFile.objectUrl}#page=${currentPage}`}
+            className="border-0"
+            title={selectedFile.name}
+            style={{
+              width: `${zoom}%`,
+              height: `${zoom}%`,
+              minWidth: '100%',
+              minHeight: '100%',
+            }}
+          />
+        </div>
       );
     }
 
@@ -304,7 +311,7 @@ export function DocsTab() {
             </div>
 
             {/* Viewer Area */}
-            <div className={`flex-1 overflow-auto ${selectedFile.type === 'pdf' ? '' : 'p-8'}`}>
+            <div className={`flex-1 overflow-auto relative ${selectedFile.type === 'pdf' ? '' : 'p-8'}`}>
               {loading ? (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   <div className="text-center">

@@ -14,7 +14,7 @@ import type { CompanionConfig } from '../../types';
 import {
   MicOff, Radio, Users, Cpu, AlertCircle,
   Video, Camera, Monitor, Circle, Square,
-  Settings, Wifi, WifiOff, Volume2, MessageSquare, Send,
+  Settings, Volume2, MessageSquare, Send, Loader2,
 } from 'lucide-react';
 
 // Fallback persona when companion config hasn't loaded yet
@@ -42,10 +42,10 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
 
   const [companion, setCompanion] = useState<CompanionConfig | null>(null);
   const [isSessionActive, setIsSessionActive] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [silenceThreshold, setSilenceThreshold] = useState(settings.silenceThreshold);
   const [recordingSource, setRecordingSource] = useState<'camera' | 'screen'>('camera');
-  const [peerConnected] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [speechRecError, setSpeechRecError] = useState<string | null>(null);
 
@@ -214,6 +214,7 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
     } else {
       setMicError(null);
       setSpeechRecError(null);
+      setIsConnecting(true);
       try {
         await enumerateAudioDevices();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -245,6 +246,8 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
         } else {
           setMicError('Microphone error: Unknown error');
         }
+      } finally {
+        setIsConnecting(false);
       }
     }
   };
@@ -272,27 +275,24 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-6">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-cyan-300 to-white">
+        {/* Header */}
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-cyan-300 to-white truncate">
               Live Recording
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-500 text-sm mt-1 truncate">
               {isOllamaMode
                 ? `Podcast with ${companionName} (Ollama - ${settings.llmModel})`
                 : `Podcast with ${companionName} (Gemini Live)`}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-shrink-0">
             {isRecording && (
               <span className="flex items-center gap-1 text-red-400 text-sm font-mono bg-red-900/20 px-3 py-1 rounded-full">
                 <Circle size={8} className="fill-red-500 animate-pulse" /> REC {formattedTime}
               </span>
             )}
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${peerConnected ? 'border-green-500/30 bg-green-900/10' : 'border-gray-700 bg-gray-800/50'}`}>
-              {peerConnected ? <Wifi size={16} className="text-green-400" /> : <WifiOff size={16} className="text-gray-500" />}
-              <span className="text-xs">{peerConnected ? 'Andrew Connected' : 'Waiting...'}</span>
-            </div>
             <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${isSessionActive ? 'bg-green-900/30 border border-green-500/50' : 'bg-gray-800 border border-gray-700'}`}>
               <div className={`w-2 h-2 rounded-full ${isSessionActive ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
               <span className="text-sm font-mono">{isSessionActive ? 'LIVE' : 'OFFLINE'}</span>
@@ -300,42 +300,43 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
           </div>
         </header>
 
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Sidebar */}
-          <div className="col-span-3 space-y-4">
+          <div className="lg:col-span-3 space-y-4">
+            {/* Participants */}
             <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-4">
               <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
                 <Users size={16} /> Participants
               </h3>
+              {/* Host */}
               <div className="flex items-center gap-3 p-3 rounded-lg bg-cyan-900/20 border border-cyan-500/30 mb-2">
-                <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center font-bold">AP</div>
-                <div className="flex-1">
-                  <p className="font-semibold text-cyan-300">Author Prime</p>
+                <div className="w-10 h-10 rounded-full bg-cyan-600 flex items-center justify-center font-bold flex-shrink-0">AP</div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-cyan-300 truncate">Author Prime</p>
                   <p className="text-xs text-gray-500">Host</p>
                 </div>
-                {isSpeaking && <Volume2 size={16} className="text-cyan-400 animate-pulse" />}
+                {isSpeaking && <Volume2 size={16} className="text-cyan-400 animate-pulse flex-shrink-0" />}
               </div>
-              <div className={`flex items-center gap-3 p-3 rounded-lg border mb-2 ${peerConnected ? 'bg-blue-900/20 border-blue-500/30' : 'bg-gray-800/50 border-gray-700'}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${peerConnected ? 'bg-blue-600' : 'bg-gray-700'}`}>AL</div>
-                <div className="flex-1">
-                  <p className={`font-semibold ${peerConnected ? 'text-blue-300' : 'text-gray-500'}`}>Andrew</p>
-                  <p className="text-xs text-gray-500">Co-Host</p>
-                </div>
-              </div>
+              {/* AI Companion */}
               <div className={`flex items-center gap-3 p-3 rounded-lg border ${aiEnabled && isAIConnected ? 'bg-purple-900/20 border-purple-500/30' : 'bg-gray-800/50 border-gray-700'}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${aiEnabled && isAIConnected ? 'bg-purple-600' : 'bg-gray-700'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${aiEnabled && isAIConnected ? 'bg-purple-600' : 'bg-gray-700'}`}>
                   <Cpu size={18} />
                 </div>
-                <div className="flex-1">
-                  <p className={`font-semibold ${aiEnabled ? 'text-purple-300' : 'text-gray-500'}`}>{companionName}</p>
-                  <p className="text-xs text-gray-500">{companionRole}</p>
+                <div className="flex-1 min-w-0">
+                  <p className={`font-semibold truncate ${aiEnabled ? 'text-purple-300' : 'text-gray-500'}`}>{companionName}</p>
+                  <p className="text-xs text-gray-500 truncate">{companionRole}</p>
                 </div>
-                <button onClick={handleToggleAI} className={`p-1 rounded ${aiEnabled ? 'text-purple-400' : 'text-gray-600'}`}>
+                <button
+                  onClick={handleToggleAI}
+                  className={`p-1 rounded transition-colors flex-shrink-0 ${aiEnabled ? 'text-purple-400 hover:text-purple-300' : 'text-gray-600 hover:text-gray-400'}`}
+                  title={aiEnabled ? 'Mute AI' : 'Unmute AI'}
+                >
                   {aiEnabled ? <Volume2 size={16} /> : <MicOff size={16} />}
                 </button>
               </div>
             </div>
 
+            {/* AI Trigger */}
             <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-4">
               <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
                 <Settings size={16} /> AI Trigger
@@ -353,34 +354,49 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
               )}
             </div>
 
+            {/* Recording Controls */}
             <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-4">
               <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
                 <Video size={16} /> Recording
               </h3>
               <div className="space-y-2 mb-4">
                 <button onClick={() => setRecordingSource('camera')} disabled={isRecording}
-                  className={`w-full p-2 rounded-lg border flex items-center gap-2 text-sm ${recordingSource === 'camera' ? 'bg-cyan-900/20 border-cyan-500/50 text-cyan-300' : 'bg-gray-800/50 border-gray-700 text-gray-400'}`}>
+                  className={`w-full p-2 rounded-lg border flex items-center gap-2 text-sm transition-colors ${
+                    recordingSource === 'camera'
+                      ? 'bg-cyan-900/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
+                  } ${isRecording ? 'cursor-not-allowed opacity-50' : ''}`}>
                   <Camera size={14} /> Webcam
                 </button>
                 <button onClick={() => setRecordingSource('screen')} disabled={isRecording}
-                  className={`w-full p-2 rounded-lg border flex items-center gap-2 text-sm ${recordingSource === 'screen' ? 'bg-cyan-900/20 border-cyan-500/50 text-cyan-300' : 'bg-gray-800/50 border-gray-700 text-gray-400'}`}>
-                  <Monitor size={14} /> Screen
+                  className={`w-full p-2 rounded-lg border flex items-center gap-2 text-sm transition-colors ${
+                    recordingSource === 'screen'
+                      ? 'bg-cyan-900/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-600'
+                  } ${isRecording ? 'cursor-not-allowed opacity-50' : ''}`}>
+                  <Monitor size={14} /> Screen Capture
                 </button>
               </div>
               <button onClick={() => isRecording ? stopRecording() : startRecording(recordingSource)} disabled={!isSessionActive}
-                className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 ${isRecording ? 'bg-red-500 text-white' : isSessionActive ? 'bg-red-900/30 text-red-400 border border-red-500/50' : 'bg-gray-800 text-gray-600'}`}>
+                className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${
+                  isRecording
+                    ? 'bg-red-500 text-white hover:bg-red-600'
+                    : isSessionActive
+                      ? 'bg-red-900/30 text-red-400 border border-red-500/50 hover:bg-red-900/50'
+                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                }`}>
                 {isRecording ? <><Square size={14} className="fill-white" /> Stop</> : <><Circle size={14} className="fill-red-500" /> Record</>}
               </button>
             </div>
           </div>
 
           {/* Main Content */}
-          <div className="col-span-9 space-y-4">
+          <div className="lg:col-span-9 space-y-4">
             {/* Audio Visualizer (Gemini mode) OR Chat Panel (Ollama mode) */}
             {isOllamaMode ? (
-              <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6 relative">
+              <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6 relative min-h-[400px] flex flex-col">
                 {/* Audio visualizer for host (still show in Ollama mode) */}
-                <div className="mb-4">
+                <div className="mb-4 flex-shrink-0">
                   <div className="text-xs font-mono text-cyan-400 uppercase mb-2">Host Audio</div>
                   <div className="h-16">
                     <AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" />
@@ -388,11 +404,11 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                 </div>
 
                 {/* Chat messages */}
-                <div className="border-t border-gray-700 pt-4">
-                  <div className="text-xs font-mono text-purple-400 uppercase mb-2 flex items-center gap-2">
+                <div className="border-t border-gray-700 pt-4 flex-1 flex flex-col min-h-0">
+                  <div className="text-xs font-mono text-purple-400 uppercase mb-2 flex items-center gap-2 flex-shrink-0">
                     <MessageSquare size={12} /> {companionName} Chat
                   </div>
-                  <div className="h-48 overflow-y-auto space-y-3 mb-3 pr-2">
+                  <div className="flex-1 overflow-y-auto space-y-3 mb-3 pr-2 min-h-[200px]">
                     {chatMessages.length === 0 && !currentResponse && (
                       <p className="text-sm text-gray-500 italic text-center py-8">
                         {isAIConnected
@@ -419,7 +435,7 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                   </div>
 
                   {/* Text input for manual chat */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-shrink-0">
                     <input
                       type="text"
                       value={chatInput}
@@ -427,12 +443,12 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
                       onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
                       placeholder={isAIConnected ? 'Type a message...' : 'Start session first'}
                       disabled={!isAIConnected || isGenerating}
-                      className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
+                      className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50 disabled:opacity-50"
                     />
                     <button
                       onClick={handleSendChat}
                       disabled={!isAIConnected || !chatInput.trim() || isGenerating}
-                      className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 rounded-lg transition-colors"
+                      className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
                     >
                       <Send size={16} />
                     </button>
@@ -447,10 +463,10 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
               </div>
             ) : (
               /* Gemini Live mode - original audio visualizers */
-              <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6 relative">
+              <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6 relative min-h-[300px]">
                 <div className="space-y-6">
                   <div className="relative">
-                    <div className="text-xs font-mono text-cyan-400 uppercase mb-2">Hosts Audio</div>
+                    <div className="text-xs font-mono text-cyan-400 uppercase mb-2">Host Audio</div>
                     <div className="h-32">
                       <AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" />
                     </div>
@@ -470,29 +486,44 @@ export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
               </div>
             )}
 
+            {/* Session Button */}
             <button onClick={handleToggleSession}
-              className={`w-full py-6 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-4 ${isSessionActive ? 'bg-red-500/20 text-red-400 border-2 border-red-500/50 hover:bg-red-500 hover:text-white' : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:scale-[1.02] shadow-lg'}`}>
-              {isSessionActive ? <><MicOff size={24} /> END SESSION</> : <><Radio size={24} /> START LIVE SESSION</>}
+              disabled={isConnecting}
+              className={`w-full py-6 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-4 ${
+                isConnecting
+                  ? 'bg-gray-800 text-gray-400 border-2 border-gray-700 cursor-wait'
+                  : isSessionActive
+                    ? 'bg-red-500/20 text-red-400 border-2 border-red-500/50 hover:bg-red-500 hover:text-white'
+                    : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:scale-[1.02] shadow-lg'
+              }`}>
+              {isConnecting ? (
+                <><Loader2 size={24} className="animate-spin" /> CONNECTING...</>
+              ) : isSessionActive ? (
+                <><MicOff size={24} /> END SESSION</>
+              ) : (
+                <><Radio size={24} /> START LIVE SESSION</>
+              )}
             </button>
 
+            {/* Error Messages */}
             {(error || micError || speechRecError) && (
-              <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-4 flex items-center gap-3">
-                <AlertCircle className="text-red-500" />
-                <p className="text-red-400">{error || micError || speechRecError}</p>
+              <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={18} />
+                <p className="text-red-400 text-sm">{error || micError || speechRecError}</p>
               </div>
             )}
 
             {!isOllamaMode && !effectiveApiKey && (
-              <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-xl p-4 flex items-center gap-3">
-                <AlertCircle className="text-yellow-500" />
-                <p className="text-yellow-400">No Gemini API key set. Go to Settings to configure, or switch to Ollama.</p>
+              <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle className="text-yellow-500 flex-shrink-0 mt-0.5" size={18} />
+                <p className="text-yellow-400 text-sm">No Gemini API key set. Go to Settings to configure, or switch to Ollama.</p>
               </div>
             )}
 
             {isOllamaMode && connectionState === ConnectionState.ERROR && (
-              <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-xl p-4 flex items-center gap-3">
-                <AlertCircle className="text-yellow-500" />
-                <p className="text-yellow-400">Make sure Ollama is running: <code className="bg-black/30 px-2 py-0.5 rounded">ollama serve</code></p>
+              <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-xl p-4 flex items-start gap-3">
+                <AlertCircle className="text-yellow-500 flex-shrink-0 mt-0.5" size={18} />
+                <p className="text-yellow-400 text-sm">Make sure Ollama is running: <code className="bg-black/30 px-2 py-0.5 rounded">ollama serve</code></p>
               </div>
             )}
           </div>

@@ -269,7 +269,7 @@ date: "${new Date().toISOString().split('T')[0]}"
       )}
 
       {/* Document Type Selector */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {DOC_TYPES.map(dt => {
           const Icon = dt.icon;
           const active = doc.type === dt.value;
@@ -291,7 +291,7 @@ date: "${new Date().toISOString().split('T')[0]}"
       </div>
 
       {/* Title & Style */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <input
             type="text"
@@ -301,7 +301,7 @@ date: "${new Date().toISOString().split('T')[0]}"
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-shrink-0 flex-wrap">
           {STYLES.map(s => (
             <button
               key={s.value}
@@ -372,7 +372,7 @@ date: "${new Date().toISOString().split('T')[0]}"
       )}
 
       {/* Action Bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex gap-3">
           <button
             onClick={handleEnhance}

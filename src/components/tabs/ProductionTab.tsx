@@ -118,8 +118,8 @@ export default function ProductionTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
             Production
           </h2>
@@ -127,7 +127,7 @@ export default function ProductionTab() {
             AI-powered post-production pipeline for My Pretend Life
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <div className={`w-2 h-2 rounded-full ${ollamaReady ? 'bg-emerald-400' : 'bg-red-400'}`} />
           <span className="text-xs text-slate-400">
             {ollamaReady ? `Ollama (${selectedModel})` : 'Ollama offline'}
