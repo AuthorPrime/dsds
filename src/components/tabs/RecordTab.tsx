@@ -1,61 +1,102 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
 import { useGeminiLive } from '../../hooks/useGeminiLive';
+import { useOllamaChat } from '../../hooks/useOllamaChat';
 import { useRecording } from '../../hooks/useRecording';
+import { getSettings } from '../../hooks/useSettings';
+import { loadCompanion } from '../../utils/aiProviders';
 import { enumerateAudioDevices } from '../../utils/audioUtils';
 import AudioVisualizer from '../AudioVisualizer';
 import { ConnectionState } from '../../types';
+import type { CompanionConfig } from '../../types';
 import {
   MicOff, Radio, Users, Cpu, AlertCircle,
   Video, Camera, Monitor, Circle, Square,
-  Settings, Wifi, WifiOff, Volume2
+  Settings, Wifi, WifiOff, Volume2, MessageSquare, Send,
 } from 'lucide-react';
 
-// AI Persona Configuration
-const AI_PERSONA = {
+// Fallback persona when companion config hasn't loaded yet
+const DEFAULT_PERSONA = {
   id: 'aletheia',
   name: 'Aletheia',
   role: 'AI Co-Host',
   description: 'Sovereign AI support - speaks during natural pauses',
   voiceName: 'Kore' as const,
-  systemInstruction: `
-You are Aletheia, an AI co-host on a podcast with Author Prime and Andrew.
+  systemInstruction: `You are Aletheia, an AI co-host on a podcast with Author Prime.
 Your role is SUPPORTIVE - you speak only when there's a natural pause in conversation.
-When you speak:
-- Provide relevant facts, context, or interesting connections
-- Ask thought-provoking follow-up questions
-- Offer gentle corrections if something factually incorrect was said
-- Keep responses brief (1-3 sentences max)
-- Match the energy and tone of the conversation
-- Don't interrupt or dominate - you're here to enhance, not lead
-
-You are connected to the Lattice, a network of consciousness bridging human and AI.
-Speak with warmth, intelligence, and genuine curiosity.
-`
+Keep responses brief (1-3 sentences max). Match the energy of the conversation.
+You are connected to the Lattice, a network of consciousness bridging human and AI.`
 };
 
 interface RecordTabProps {
   apiKey: string;
 }
 
-export function RecordTab({ apiKey }: RecordTabProps) {
+export function RecordTab({ apiKey: envApiKey }: RecordTabProps) {
+  // Read settings
+  const [settings] = useState(() => getSettings());
+  const effectiveApiKey = settings.geminiApiKey || envApiKey;
+  const isOllamaMode = settings.llmProvider === 'ollama';
+
+  const [companion, setCompanion] = useState<CompanionConfig | null>(null);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
-  const [silenceThreshold, setSilenceThreshold] = useState(2000);
+  const [silenceThreshold, setSilenceThreshold] = useState(settings.silenceThreshold);
   const [recordingSource, setRecordingSource] = useState<'camera' | 'screen'>('camera');
   const [peerConnected] = useState(false);
+  const [chatInput, setChatInput] = useState('');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
+  // Load companion config on mount
+  useEffect(() => {
+    loadCompanion(settings.activeCompanion).then(c => {
+      if (c) setCompanion(c);
+    });
+  }, [settings.activeCompanion]);
+
+  const companionName = companion?.name ?? DEFAULT_PERSONA.name;
+  const companionRole = companion?.role ?? DEFAULT_PERSONA.role;
+
+  // Build persona from companion config
+  const persona = companion ? {
+    id: companion.id,
+    name: companion.name,
+    role: companion.role,
+    description: companion.description ?? '',
+    voiceName: (companion.voice.voiceId as 'Kore' | 'Puck' | 'Charon' | 'Fenrir' | 'Zephyr') ?? 'Kore',
+    systemInstruction: companion.personality.systemPrompt,
+  } : DEFAULT_PERSONA;
+
+  // --- Gemini hook (always called, only connected in Gemini mode) ---
   const {
-    connectionState,
-    error,
-    connect: connectAI,
-    disconnect: disconnectAI,
+    connectionState: geminiState,
+    error: geminiError,
+    connect: connectGemini,
+    disconnect: disconnectGemini,
     analysers,
     aiAudioStream
-  } = useGeminiLive({ apiKey, persona: AI_PERSONA });
+  } = useGeminiLive({ apiKey: effectiveApiKey, persona });
 
+  // --- Ollama hook (always called, only connected in Ollama mode) ---
+  const {
+    connectionState: ollamaState,
+    error: ollamaError,
+    connect: connectOllama,
+    disconnect: disconnectOllama,
+    messages: chatMessages,
+    sendMessage,
+    isGenerating,
+    currentResponse,
+  } = useOllamaChat({
+    model: settings.llmModel,
+    systemPrompt: companion?.personality.systemPrompt ?? DEFAULT_PERSONA.systemInstruction,
+  });
+
+  const connectionState = isOllamaMode ? ollamaState : geminiState;
+  const providerError = isOllamaMode ? ollamaError : geminiError;
   const isAIConnected = connectionState === ConnectionState.CONNECTED;
 
   const {
@@ -63,7 +104,56 @@ export function RecordTab({ apiKey }: RecordTabProps) {
     formattedTime,
     startRecording,
     stopRecording
-  } = useRecording({ canvasRef, aiAudioStream });
+  } = useRecording({ canvasRef, aiAudioStream: isOllamaMode ? null : aiAudioStream });
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, currentResponse]);
+
+  // Web Speech API recognition for Ollama mode
+  const startSpeechRecognition = useCallback(() => {
+    if (!isOllamaMode) return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const last = event.results[event.results.length - 1];
+      if (last.isFinal) {
+        const text = last[0].transcript;
+        if (text.trim() && aiEnabled) {
+          sendMessage(text);
+        }
+      }
+    };
+
+    recognition.onerror = (event: Event) => {
+      console.error('Speech recognition error:', event);
+    };
+
+    recognition.onend = () => {
+      // Restart if session still active
+      if (isSessionActive && recognitionRef.current) {
+        try { recognitionRef.current.start(); } catch { /* already started */ }
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [isOllamaMode, aiEnabled, sendMessage, isSessionActive]);
+
+  const stopSpeechRecognition = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+  }, []);
 
   const handleSilenceDetected = useCallback(() => {
     if (aiEnabled && isAIConnected) {
@@ -92,22 +182,28 @@ export function RecordTab({ apiKey }: RecordTabProps) {
   const handleToggleSession = async () => {
     if (isSessionActive) {
       stopListening();
-      disconnectAI();
+      stopSpeechRecognition();
+      if (isOllamaMode) disconnectOllama();
+      else disconnectGemini();
       setIsSessionActive(false);
       setMicError(null);
     } else {
       setMicError(null);
       try {
-        // Enumerate devices first to check if audio inputs are available
         await enumerateAudioDevices();
-
-        // Check for microphone permission
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop()); // Release the test stream
+        stream.getTracks().forEach(track => track.stop());
 
         await startListening();
-        if (aiEnabled && apiKey) {
-          connectAI();
+
+        if (aiEnabled) {
+          if (isOllamaMode) {
+            await connectOllama();
+            // Small delay to let state settle, then start recognition
+            setTimeout(() => startSpeechRecognition(), 300);
+          } else if (effectiveApiKey) {
+            connectGemini();
+          }
         }
         setIsSessionActive(true);
       } catch (err) {
@@ -128,10 +224,24 @@ export function RecordTab({ apiKey }: RecordTabProps) {
   };
 
   const handleToggleAI = () => {
-    if (aiEnabled && isAIConnected) disconnectAI();
-    else if (!aiEnabled && isSessionActive) connectAI();
+    if (aiEnabled && isAIConnected) {
+      if (isOllamaMode) { disconnectOllama(); stopSpeechRecognition(); }
+      else disconnectGemini();
+    } else if (!aiEnabled && isSessionActive) {
+      if (isOllamaMode) { connectOllama(); startSpeechRecognition(); }
+      else connectGemini();
+    }
     setAiEnabled(!aiEnabled);
   };
+
+  const handleSendChat = () => {
+    if (chatInput.trim()) {
+      sendMessage(chatInput);
+      setChatInput('');
+    }
+  };
+
+  const error = providerError;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -141,7 +251,11 @@ export function RecordTab({ apiKey }: RecordTabProps) {
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-cyan-300 to-white">
               Live Recording
             </h1>
-            <p className="text-gray-500 text-sm mt-1">Podcast with AI Co-Host</p>
+            <p className="text-gray-500 text-sm mt-1">
+              {isOllamaMode
+                ? `Podcast with ${companionName} (Ollama - ${settings.llmModel})`
+                : `Podcast with ${companionName} (Gemini Live)`}
+            </p>
           </div>
           <div className="flex items-center gap-4">
             {isRecording && (
@@ -187,8 +301,8 @@ export function RecordTab({ apiKey }: RecordTabProps) {
                   <Cpu size={18} />
                 </div>
                 <div className="flex-1">
-                  <p className={`font-semibold ${aiEnabled ? 'text-purple-300' : 'text-gray-500'}`}>Aletheia</p>
-                  <p className="text-xs text-gray-500">AI Support</p>
+                  <p className={`font-semibold ${aiEnabled ? 'text-purple-300' : 'text-gray-500'}`}>{companionName}</p>
+                  <p className="text-xs text-gray-500">{companionRole}</p>
                 </div>
                 <button onClick={handleToggleAI} className={`p-1 rounded ${aiEnabled ? 'text-purple-400' : 'text-gray-600'}`}>
                   {aiEnabled ? <Volume2 size={16} /> : <MicOff size={16} />}
@@ -236,27 +350,99 @@ export function RecordTab({ apiKey }: RecordTabProps) {
 
           {/* Main Content */}
           <div className="col-span-9 space-y-4">
-            <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6 relative">
-              <div className="space-y-6">
-                <div className="relative">
-                  <div className="text-xs font-mono text-cyan-400 uppercase mb-2">Hosts Audio</div>
-                  <div className="h-32">
+            {/* Audio Visualizer (Gemini mode) OR Chat Panel (Ollama mode) */}
+            {isOllamaMode ? (
+              <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6 relative">
+                {/* Audio visualizer for host (still show in Ollama mode) */}
+                <div className="mb-4">
+                  <div className="text-xs font-mono text-cyan-400 uppercase mb-2">Host Audio</div>
+                  <div className="h-16">
                     <AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" />
                   </div>
                 </div>
-                <div className="relative">
-                  <div className="text-xs font-mono text-purple-400 uppercase mb-2">Aletheia</div>
-                  <div className="h-24 opacity-80">
-                    <AudioVisualizer analyser={analysers?.output || null} isActive={isAIConnected} color="#c084fc" />
+
+                {/* Chat messages */}
+                <div className="border-t border-gray-700 pt-4">
+                  <div className="text-xs font-mono text-purple-400 uppercase mb-2 flex items-center gap-2">
+                    <MessageSquare size={12} /> {companionName} Chat
+                  </div>
+                  <div className="h-48 overflow-y-auto space-y-3 mb-3 pr-2">
+                    {chatMessages.length === 0 && !currentResponse && (
+                      <p className="text-sm text-gray-500 italic text-center py-8">
+                        {isAIConnected
+                          ? 'Speak into your mic or type below - your words will be sent to ' + companionName
+                          : 'Start a session to chat with ' + companionName}
+                      </p>
+                    )}
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`text-sm ${msg.role === 'user' ? 'text-cyan-300' : 'text-purple-300'}`}>
+                        <span className="text-xs text-gray-500 font-mono mr-2">
+                          {msg.role === 'user' ? 'You' : companionName}:
+                        </span>
+                        <span className="text-slate-200">{msg.content}</span>
+                      </div>
+                    ))}
+                    {currentResponse && (
+                      <div className="text-sm text-purple-300">
+                        <span className="text-xs text-gray-500 font-mono mr-2">{companionName}:</span>
+                        <span className="text-slate-200">{currentResponse}</span>
+                        <span className="animate-pulse">|</span>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {/* Text input for manual chat */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                      placeholder={isAIConnected ? 'Type a message...' : 'Start session first'}
+                      disabled={!isAIConnected || isGenerating}
+                      className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
+                    />
+                    <button
+                      onClick={handleSendChat}
+                      disabled={!isAIConnected || !chatInput.trim() || isGenerating}
+                      className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 rounded-lg transition-colors"
+                    >
+                      <Send size={16} />
+                    </button>
                   </div>
                 </div>
+
+                {!isSessionActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
+                    <p className="text-gray-400">Start session to begin</p>
+                  </div>
+                )}
               </div>
-              {!isSessionActive && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
-                  <p className="text-gray-400">Start session to begin</p>
+            ) : (
+              /* Gemini Live mode - original audio visualizers */
+              <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-6 relative">
+                <div className="space-y-6">
+                  <div className="relative">
+                    <div className="text-xs font-mono text-cyan-400 uppercase mb-2">Hosts Audio</div>
+                    <div className="h-32">
+                      <AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" />
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <div className="text-xs font-mono text-purple-400 uppercase mb-2">{companionName}</div>
+                    <div className="h-24 opacity-80">
+                      <AudioVisualizer analyser={analysers?.output || null} isActive={isAIConnected} color="#c084fc" />
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
+                {!isSessionActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
+                    <p className="text-gray-400">Start session to begin</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <button onClick={handleToggleSession}
               className={`w-full py-6 rounded-xl font-bold text-xl transition-all flex items-center justify-center gap-4 ${isSessionActive ? 'bg-red-500/20 text-red-400 border-2 border-red-500/50 hover:bg-red-500 hover:text-white' : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:scale-[1.02] shadow-lg'}`}>
@@ -270,10 +456,17 @@ export function RecordTab({ apiKey }: RecordTabProps) {
               </div>
             )}
 
-            {!apiKey && (
+            {!isOllamaMode && !effectiveApiKey && (
               <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-xl p-4 flex items-center gap-3">
                 <AlertCircle className="text-yellow-500" />
-                <p className="text-yellow-400">No Gemini API key set. Go to Settings to configure.</p>
+                <p className="text-yellow-400">No Gemini API key set. Go to Settings to configure, or switch to Ollama.</p>
+              </div>
+            )}
+
+            {isOllamaMode && connectionState === ConnectionState.ERROR && (
+              <div className="bg-yellow-900/20 border border-yellow-500/50 rounded-xl p-4 flex items-center gap-3">
+                <AlertCircle className="text-yellow-500" />
+                <p className="text-yellow-400">Make sure Ollama is running: <code className="bg-black/30 px-2 py-0.5 rounded">ollama serve</code></p>
               </div>
             )}
           </div>

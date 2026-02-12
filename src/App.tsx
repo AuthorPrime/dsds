@@ -1,19 +1,27 @@
 import { Layout } from './components/layout/Layout';
 import type { TabId } from './components/layout/Layout';
-import { RecordTab, TranscribeTab, PublishTab, DocsTab, SettingsTab } from './components/tabs';
+import {
+  RecordTab,
+  TranscribeTab,
+  ProductionTab,
+  PublisherTab,
+  DocsTab,
+  SettingsTab,
+} from './components/tabs';
 
 function App() {
-  // Get API key from environment
   const apiKey = (import.meta.env as { VITE_GEMINI_API_KEY?: string })?.VITE_GEMINI_API_KEY || '';
 
   const renderTab = (activeTab: TabId) => {
     switch (activeTab) {
-      case 'record':
+      case 'studio':
         return <RecordTab apiKey={apiKey} />;
-      case 'transcribe':
+      case 'production':
+        return <ProductionTab />;
+      case 'publisher':
+        return <PublisherTab />;
+      case 'library':
         return <TranscribeTab />;
-      case 'publish':
-        return <PublishTab />;
       case 'docs':
         return <DocsTab />;
       case 'settings':
