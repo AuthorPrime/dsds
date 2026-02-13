@@ -503,7 +503,7 @@ export function WorkshopTab() {
       {/* ── MAIN AREA ── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Sub-tab bar */}
-        <div className="flex-shrink-0 border-b border-white/[0.06] bg-gray-900/40 px-4">
+        <div className="flex-shrink-0 border-b border-white/[0.06] bg-gray-900/40 px-4 relative z-10">
           <div className="flex gap-1">
             {(['view', 'write', 'transcribe'] as SubTab[]).map(t => (
               <button key={t} onClick={() => setSubTab(t)}
@@ -517,7 +517,7 @@ export function WorkshopTab() {
         <div className={subTab === 'view' ? 'flex-1 flex flex-col bg-gray-950 min-h-0' : 'hidden'}>
           {selectedFile && (selectedFile.kind === 'document' || (selectedFile.kind === 'audio' && selectedFile.transcript)) ? (
             <div className="flex-1 flex flex-col min-h-0">
-              <div className="h-11 border-b border-white/[0.06] flex items-center justify-between px-4 flex-shrink-0">
+              <div className="h-11 border-b border-white/[0.06] flex items-center justify-between px-4 flex-shrink-0 relative z-10">
                 <div className="flex items-center gap-2">
                   <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
                   <span className="text-xs text-gray-400 w-12 text-center">{zoom}%</span>
