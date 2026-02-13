@@ -544,7 +544,10 @@ export function WorkshopTab() {
                   }} className="px-2.5 py-1 bg-gray-700/60 hover:bg-gray-600/60 rounded text-xs flex items-center gap-1.5"><Download size={12} /> Save</button>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto relative min-h-0" style={{ padding: selectedFile.docType === 'pdf' ? 0 : '1rem 1.5rem' }}>
+              <div
+                className={`flex-1 relative min-h-0 ${selectedFile.docType === 'pdf' ? 'overflow-hidden' : 'overflow-auto'}`}
+                style={{ padding: selectedFile.docType === 'pdf' ? 0 : '1rem 1.5rem' }}
+              >
                 {loading ? <div className="flex items-center justify-center h-full text-gray-500"><div className="text-center"><div className="w-7 h-7 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-xs">Loading...</p></div></div> : renderDocContent()}
               </div>
             </div>
