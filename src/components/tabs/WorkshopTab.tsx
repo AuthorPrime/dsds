@@ -501,9 +501,9 @@ export function WorkshopTab() {
         </div>
 
         {/* ── VIEW sub-tab ── */}
-        <div className={subTab === 'view' ? 'flex-1 flex flex-col bg-gray-950' : 'hidden'}>
+        <div className={subTab === 'view' ? 'flex-1 flex flex-col bg-gray-950 min-h-0' : 'hidden'}>
           {selectedFile && (selectedFile.kind === 'document' || (selectedFile.kind === 'audio' && selectedFile.transcript)) ? (
-            <>
+            <div className="flex-1 flex flex-col min-h-0">
               <div className="h-11 border-b border-white/[0.06] flex items-center justify-between px-4 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
@@ -531,10 +531,10 @@ export function WorkshopTab() {
                   }} className="px-2.5 py-1 bg-gray-700/60 hover:bg-gray-600/60 rounded text-xs flex items-center gap-1.5"><Download size={12} /> Save</button>
                 </div>
               </div>
-              <div className={`flex-1 overflow-auto relative ${selectedFile.docType === 'pdf' ? 'h-full' : 'p-6'}`} style={{ minHeight: 0 }}>
+              <div className="flex-1 overflow-auto relative min-h-0" style={{ padding: selectedFile.docType === 'pdf' ? 0 : '1.5rem' }}>
                 {loading ? <div className="flex items-center justify-center h-full text-gray-500"><div className="text-center"><div className="w-7 h-7 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-xs">Loading...</p></div></div> : renderDocContent()}
               </div>
-            </>
+            </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-600">
               <div className="text-center"><FileText size={48} className="mx-auto mb-3 opacity-40" /><p className="text-sm">Select a file to view</p><p className="text-xs mt-1.5 text-gray-600">or drop files into the sidebar</p></div>
