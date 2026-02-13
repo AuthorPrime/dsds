@@ -8,7 +8,7 @@ import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection
 import { useGeminiLive } from '../../hooks/useGeminiLive';
 import { useOllamaChat } from '../../hooks/useOllamaChat';
 import { useRecording } from '../../hooks/useRecording';
-import { getSettings } from '../../hooks/useSettings';
+import { getSettings, incrementStat } from '../../hooks/useSettings';
 import { loadCompanion } from '../../utils/aiProviders';
 import { enumerateAudioDevices } from '../../utils/audioUtils';
 import { speak } from '../../services/tts';
@@ -201,7 +201,7 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); stream.getTracks().forEach(t => t.stop());
         await startListening();
         if (aiEnabled) { if (isOllamaMode) { await connectOllama(); setTimeout(() => startSpeechRecognition(), 300); } else if (effectiveApiKey) connectGemini(); }
-        setIsSessionActive(true); isSessionActiveRef.current = true;
+        setIsSessionActive(true); isSessionActiveRef.current = true; incrementStat('totalSessions');
       } catch (err) {
         if (err instanceof Error) { if (err.name === 'NotAllowedError') setMicError('Microphone access denied.'); else if (err.name === 'NotFoundError') setMicError('No microphone found.'); else setMicError(`Mic error: ${err.message}`); } else setMicError('Mic error: Unknown');
       } finally { setIsConnecting(false); }

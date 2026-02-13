@@ -13,7 +13,7 @@ import {
   GraduationCap, Newspaper, AlignLeft, Volume2, VolumeX, FolderUp,
   FileDown, Layout, MessageSquare, Share2, Hash,
 } from 'lucide-react';
-import { getSettings } from '../../hooks/useSettings';
+import { getSettings, incrementStat } from '../../hooks/useSettings';
 import { getUserBranding } from '../../branding';
 import { enhanceWriting, generateResearchSummary, chat, isOllamaAvailable, listModels } from '../../services/ollama';
 import { speak, stopSpeaking, isSpeaking as checkSpeaking } from '../../services/tts';
@@ -369,6 +369,7 @@ export function WorkshopTab() {
         result = await enhanceWriting(doc.content, doc.style, model);
       }
       setDoc(d => ({ ...d, enhanced: result, isProcessing: false }));
+      incrementStat('totalEnhancements');
       setActiveView('preview');
     } catch (err) {
       setDoc(d => ({ ...d, isProcessing: false }));

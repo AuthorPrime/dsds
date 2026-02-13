@@ -24,6 +24,9 @@ export interface AppSettings {
   websiteUrl: string;
   // Onboarding
   hasCompletedOnboarding: boolean;
+  // Usage stats
+  totalSessions: number;
+  totalEnhancements: number;
 }
 
 // Platform-aware default paths
@@ -49,7 +52,17 @@ export const DEFAULTS: AppSettings = {
   organizationName: '',
   websiteUrl: '',
   hasCompletedOnboarding: false,
+  totalSessions: 0,
+  totalEnhancements: 0,
 };
+
+/** Increment a numeric counter in settings (e.g. totalSessions, totalEnhancements) */
+export function incrementStat(key: 'totalSessions' | 'totalEnhancements') {
+  const current = getSettings();
+  const updated = { ...current, [key]: (current[key] || 0) + 1 };
+  localStorage.setItem('dsds-settings', JSON.stringify(updated));
+  return updated[key];
+}
 
 export function getSettings(): AppSettings {
   try {

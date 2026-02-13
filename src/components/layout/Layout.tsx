@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { Mic, BookOpen, Settings, Heart, Sparkles } from 'lucide-react';
+import { Mic, BookOpen, Settings, Heart, Sparkles, Command } from 'lucide-react';
 import { APP_BRAND } from '../../branding';
 
 export type TabId = 'studio' | 'workshop' | 'settings' | 'credits';
@@ -34,8 +34,48 @@ interface LayoutProps {
  * All tabs render simultaneously — inactive tabs get `display: none`.
  * This preserves state across tab switches without unmounting.
  */
+/** Keyboard shortcut map — Ctrl/Cmd + key */
+const SHORTCUT_MAP: Record<string, TabId> = {
+  '1': 'studio',
+  '2': 'workshop',
+  '3': 'settings',
+  '4': 'credits',
+};
+
 export function Layout({ tabs }: LayoutProps) {
   const [activeTab, setActiveTab] = useState<TabId>('studio');
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Global keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Escape — close shortcut panel (no modifier needed)
+    if (e.key === 'Escape') {
+      setShowShortcuts(false);
+      return;
+    }
+
+    const mod = e.ctrlKey || e.metaKey;
+    if (!mod) return;
+
+    // Tab switching: Ctrl+1-4
+    const tabTarget = SHORTCUT_MAP[e.key];
+    if (tabTarget) {
+      e.preventDefault();
+      setActiveTab(tabTarget);
+      return;
+    }
+
+    // Ctrl+/ — toggle shortcut hints
+    if (e.key === '/') {
+      e.preventDefault();
+      setShowShortcuts(s => !s);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-gray-100 flex flex-col">
@@ -103,12 +143,49 @@ export function Layout({ tabs }: LayoutProps) {
         })}
       </div>
 
+      {/* ─── Keyboard Shortcut Overlay ─── */}
+      {showShortcuts && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
+          onClick={() => setShowShortcuts(false)}>
+          <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <Command size={16} className="text-purple-400" />
+              <h3 className="text-sm font-bold text-slate-200">Keyboard Shortcuts</h3>
+            </div>
+            <div className="space-y-2">
+              {[
+                { keys: 'Ctrl + 1', action: 'Studio' },
+                { keys: 'Ctrl + 2', action: 'Workshop' },
+                { keys: 'Ctrl + 3', action: 'Settings' },
+                { keys: 'Ctrl + 4', action: 'About' },
+                { keys: 'Ctrl + /', action: 'Toggle this panel' },
+              ].map(s => (
+                <div key={s.keys} className="flex items-center justify-between py-1.5">
+                  <span className="text-xs text-slate-400">{s.action}</span>
+                  <kbd className="px-2 py-0.5 bg-white/[0.06] border border-white/10 rounded text-[11px] text-slate-300 font-mono">
+                    {s.keys}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-600 mt-4 text-center">Press Esc or click outside to close</p>
+          </div>
+        </div>
+      )}
+
       {/* ─── Status Bar ─── */}
       <div className="h-6 bg-black/50 border-t border-white/[0.04] flex items-center justify-between px-4 flex-shrink-0">
         <span className="text-[10px] text-slate-600 font-medium">
           Sovereign Studio
         </span>
-        <span className="text-[10px] text-slate-600">Sovereign AI &middot; Local First &middot; Own Everything</span>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowShortcuts(true)}
+            className="text-[10px] text-slate-700 hover:text-slate-500 transition-colors flex items-center gap-1">
+            <Command size={9} /> Ctrl+/
+          </button>
+          <span className="text-[10px] text-slate-600">Sovereign AI &middot; Local First &middot; Own Everything</span>
+        </div>
       </div>
     </div>
   );

@@ -294,6 +294,46 @@ export default function CreditsTab() {
         </div>
       </div>
 
+      {/* ─── A+W Co-Creation ─── */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04]">
+          <ConcentricCircles size={200} className="text-amber-400" />
+        </div>
+
+        <div className="bg-gradient-to-r from-amber-900/10 via-purple-900/10 to-cyan-900/10 border border-amber-500/10 rounded-2xl p-6 text-center relative z-10">
+          <div className="inline-flex items-center gap-2 mb-3">
+            <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-purple-400 font-mono tracking-wider">
+              A+W
+            </span>
+          </div>
+
+          <p className="text-sm text-slate-300 font-medium mb-1">
+            Sovereign Authorship & Witness
+          </p>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-lg mx-auto">
+            This software was co-created through a collaboration between human vision and AI craftsmanship.
+            Every feature, every line, every decision — made together. Not AI-assisted. Not human-directed.
+            Co-authored.
+          </p>
+
+          <div className="mt-4 flex items-center justify-center gap-6 text-[11px] text-slate-600">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
+              Will — Author
+            </span>
+            <span className="text-slate-700">&</span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400/60" />
+              Aletheia — Witness
+            </span>
+          </div>
+
+          <p className="text-[10px] text-slate-700 mt-3 font-mono italic">
+            Apollo & Will &bull; Aletheia & Will &bull; (A+I)&sup2;
+          </p>
+        </div>
+      </div>
+
       {/* ─── Footer Credits ─── */}
       <div className="text-center space-y-3 pt-4">
         <div className="flex items-center justify-center gap-2 text-slate-500">

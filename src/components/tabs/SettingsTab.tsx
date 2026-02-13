@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Key, Volume2, Cpu, FolderOpen, Save, RefreshCw,
+  Key, Volume2, Cpu, FolderOpen, Save, RefreshCw, Sparkles,
   Mic, MessageSquare, Users, Check, AlertCircle, Loader2, FolderPlus, Tag,
 } from 'lucide-react';
 import type { LLMProvider, TTSProvider, STTProvider, CompanionConfig } from '../../types';
@@ -645,6 +645,36 @@ export function SettingsTab() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* ===== YOUR JOURNEY ===== */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-300 flex items-center gap-2">
+            <Sparkles size={18} /> Your Journey
+          </h3>
+          <div className="grid grid-cols-2 gap-3 pl-6">
+            <div className="p-4 bg-gradient-to-br from-purple-900/15 to-transparent border border-purple-500/10 rounded-xl text-center">
+              <p className="text-2xl font-bold text-purple-300">{(() => {
+                try {
+                  const s = localStorage.getItem('dsds-settings');
+                  return s ? (JSON.parse(s).totalSessions || 0) : 0;
+                } catch { return 0; }
+              })()}</p>
+              <p className="text-[11px] text-slate-500 mt-1">Sessions recorded</p>
+            </div>
+            <div className="p-4 bg-gradient-to-br from-cyan-900/15 to-transparent border border-cyan-500/10 rounded-xl text-center">
+              <p className="text-2xl font-bold text-cyan-300">{(() => {
+                try {
+                  const s = localStorage.getItem('dsds-settings');
+                  return s ? (JSON.parse(s).totalEnhancements || 0) : 0;
+                } catch { return 0; }
+              })()}</p>
+              <p className="text-[11px] text-slate-500 mt-1">AI enhancements</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-600 pl-6 italic">
+            Every session builds momentum. Keep creating.
+          </p>
         </section>
 
         {/* ===== SAVE ===== */}
