@@ -398,11 +398,19 @@ export function WorkshopTab() {
   const fontClass = fontFamily === 'serif' ? 'font-serif' : fontFamily === 'mono' ? 'font-mono' : 'font-sans';
 
   // ─── Render doc content in View ───────────────────────────────
+  // Document page: fills available width with comfortable margins
+  const docPageClass = 'bg-white text-gray-900 shadow-2xl rounded-lg mx-auto w-full';
+  const docPageStyle = (extraStyle?: React.CSSProperties): React.CSSProperties => ({
+    transform: `scale(${zoom / 100})`,
+    transformOrigin: 'top center',
+    ...extraStyle,
+  });
+
   const renderDocContent = () => {
     if (!selectedFile) return null;
     if (selectedFile.kind === 'audio' && selectedFile.transcript) {
       return (
-        <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-5xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
+        <div className={docPageClass} style={docPageStyle({ padding: '2.5rem 3rem' })}>
           <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{selectedFile.transcript}</pre>
         </div>
       );
@@ -411,9 +419,9 @@ export function WorkshopTab() {
       return <iframe ref={iframeRef} src={`${selectedFile.objectUrl}#page=${currentPage}`} className="border-0 w-full h-full" title={selectedFile.name} style={{ minHeight: '100%' }} />;
     }
     if (selectedFile.docType === 'md') {
-      return <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-5xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="prose prose-base max-w-none leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedFile.content || '', 'light') }} /></div>;
+      return <div className={docPageClass} style={docPageStyle({ padding: '2.5rem 3rem' })}><div className="prose prose-lg max-w-none leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedFile.content || '', 'light') }} /></div>;
     }
-    return <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-5xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{selectedFile.content}</pre></div>;
+    return <div className={docPageClass} style={docPageStyle({ padding: '2.5rem 3rem' })}><pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{selectedFile.content}</pre></div>;
   };
 
   // Open file content in Write sub-tab
@@ -531,7 +539,7 @@ export function WorkshopTab() {
                   }} className="px-2.5 py-1 bg-gray-700/60 hover:bg-gray-600/60 rounded text-xs flex items-center gap-1.5"><Download size={12} /> Save</button>
                 </div>
               </div>
-              <div className="flex-1 overflow-auto relative min-h-0" style={{ padding: selectedFile.docType === 'pdf' ? 0 : '1.5rem' }}>
+              <div className="flex-1 overflow-auto relative min-h-0" style={{ padding: selectedFile.docType === 'pdf' ? 0 : '1rem 1.5rem' }}>
                 {loading ? <div className="flex items-center justify-center h-full text-gray-500"><div className="text-center"><div className="w-7 h-7 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-xs">Loading...</p></div></div> : renderDocContent()}
               </div>
             </div>
