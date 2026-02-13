@@ -163,3 +163,17 @@ input[type="range"]:disabled::-webkit-slider-thumb {
 .speaking-ring {
   animation: speaking-ring 1.2s ease-in-out infinite;
 }
+
+/* Sacred geometry slow rotation for Credits */
+@keyframes sacred-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sacred-geometry-spin {
+  animation: sacred-spin 120s linear infinite;
+}
