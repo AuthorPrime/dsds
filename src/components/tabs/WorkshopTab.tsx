@@ -17,9 +17,8 @@ import { getSettings } from '../../hooks/useSettings';
 import { getUserBranding } from '../../branding';
 import { enhanceWriting, generateResearchSummary, chat, isOllamaAvailable, listModels } from '../../services/ollama';
 import { speak, stopSpeaking, isSpeaking as checkSpeaking } from '../../services/tts';
-import { saveFile, saveBlob, isTauri } from '../../services/fileManager';
+import { saveFile, saveBlob } from '../../services/fileManager';
 import { renderMarkdown } from '../../utils/markdown';
-import { FolderBrowser } from '../shared/FolderBrowser';
 import { eventBus, EVENTS } from '../../services/eventBus';
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -402,18 +401,18 @@ export function WorkshopTab() {
     if (!selectedFile) return null;
     if (selectedFile.kind === 'audio' && selectedFile.transcript) {
       return (
-        <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-4xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center', minWidth: '612px' }}>
+        <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-5xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}>
           <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{selectedFile.transcript}</pre>
         </div>
       );
     }
     if (selectedFile.docType === 'pdf') {
-      return <div className="w-full h-full overflow-auto"><iframe ref={iframeRef} src={`${selectedFile.objectUrl}#page=${currentPage}`} className="border-0" title={selectedFile.name} style={{ width: `${zoom}%`, height: `${zoom}%`, minWidth: '100%', minHeight: '100%' }} /></div>;
+      return <iframe ref={iframeRef} src={`${selectedFile.objectUrl}#page=${currentPage}`} className="border-0 w-full h-full" title={selectedFile.name} style={{ minHeight: '100%' }} />;
     }
     if (selectedFile.docType === 'md') {
-      return <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-4xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center', minWidth: '612px' }}><div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedFile.content || '', 'light') }} /></div>;
+      return <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-5xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><div className="prose prose-base max-w-none leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedFile.content || '', 'light') }} /></div>;
     }
-    return <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-4xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center', minWidth: '612px' }}><pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{selectedFile.content}</pre></div>;
+    return <div className="bg-white text-gray-900 p-8 shadow-2xl max-w-5xl mx-auto rounded-lg" style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}><pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{selectedFile.content}</pre></div>;
   };
 
   // Open file content in Write sub-tab
@@ -472,6 +471,13 @@ export function WorkshopTab() {
                   {file.kind === 'audio' && file.transcriptStatus === 'processing' && <Loader2 size={12} className="text-cyan-400 animate-spin" />}
                   {file.kind === 'audio' && file.transcriptStatus === 'done' && <CheckCircle size={12} className="text-green-400" />}
                   {file.kind === 'audio' && file.transcriptStatus === 'error' && <button onClick={(e) => { e.stopPropagation(); transcribeFile(file); }} className="text-[10px] px-1.5 py-0.5 bg-amber-600 rounded text-white">Retry</button>}
+                  {/* Open in Writer — available for docs with content, or audio with transcript */}
+                  {((file.kind === 'document' && file.content) || (file.kind === 'audio' && file.transcript)) && (
+                    <button onClick={(e) => { e.stopPropagation(); openInEditor(file); }}
+                      className="text-gray-500 hover:text-purple-400 p-0.5" title="Open in Writer">
+                      <PenTool size={11} />
+                    </button>
+                  )}
                   <button onClick={(e) => { e.stopPropagation(); removeFile(file.id); }} className="text-gray-600 hover:text-red-400 ml-0.5 p-0.5"><Trash2 size={12} /></button>
                 </div>
               </div>
@@ -524,7 +530,7 @@ export function WorkshopTab() {
                   }} className="px-2.5 py-1 bg-gray-700/60 hover:bg-gray-600/60 rounded text-xs flex items-center gap-1.5"><Download size={12} /> Save</button>
                 </div>
               </div>
-              <div className={`flex-1 overflow-auto relative ${selectedFile.docType === 'pdf' ? '' : 'p-8'}`}>
+              <div className={`flex-1 overflow-auto relative ${selectedFile.docType === 'pdf' ? 'h-full' : 'p-6'}`} style={{ minHeight: 0 }}>
                 {loading ? <div className="flex items-center justify-center h-full text-gray-500"><div className="text-center"><div className="w-7 h-7 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-xs">Loading...</p></div></div> : renderDocContent()}
               </div>
             </>
@@ -673,9 +679,10 @@ export function WorkshopTab() {
             {activeView === 'edit' ? (
               <textarea value={doc.content} onChange={(e) => setDoc(d => ({ ...d, content: e.target.value }))}
                 placeholder="Start writing, paste a transcript, or drop content..."
-                className={`w-full h-80 bg-white/[0.04] border border-white/[0.08] rounded-lg p-4 text-sm text-slate-200 placeholder-slate-500 resize-y focus:outline-none focus:border-purple-500/40 ${fontClass}`} />
+                className={`w-full bg-white/[0.04] border border-white/[0.08] rounded-lg p-4 text-sm text-slate-200 placeholder-slate-500 resize-y focus:outline-none focus:border-purple-500/40 ${fontClass}`}
+                style={{ minHeight: '20rem', height: '50vh' }} />
             ) : (
-              <div className={`min-h-80 bg-white/[0.04] border border-white/[0.08] rounded-lg p-5 ${fontClass}`}>
+              <div className={`bg-white/[0.04] border border-white/[0.08] rounded-lg p-5 ${fontClass}`} style={{ minHeight: '20rem' }}>
                 {doc.enhanced ? (
                   <div className="space-y-2"><div className="flex justify-end gap-2"><CopyButton text={doc.enhanced} /></div><div className="prose prose-invert prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: renderMarkdown(doc.enhanced, 'dark') }} /></div>
                 ) : doc.content.trim() ? (
@@ -715,19 +722,11 @@ export function WorkshopTab() {
               {doc.enhanced && <span className="px-2 py-0.5 bg-purple-500/[0.08] border border-purple-500/25 rounded-full text-[11px] text-purple-300">Enhanced: {doc.enhanced.split(/\s+/).filter(Boolean).length} words</span>}
             </div>
 
-            {/* Import source documents */}
-            <div className="border-t border-white/[0.06] pt-5">
-              <h3 className="text-xs font-semibold text-slate-300 flex items-center gap-2 mb-3"><FolderUp size={14} /> Import Source Documents</h3>
-              <FolderBrowser label="Browse folder for source documents" fileFilter={['.txt', '.md', '.html', '.csv', '.json']}
-                onFilesSelected={async (importedFiles) => {
-                  const texts: string[] = [];
-                  for (const f of importedFiles) {
-                    if (f.file) { try { texts.push(await f.file.text()); } catch { /* */ } }
-                    else if (isTauri()) { try { const { readTextFile } = await import('@tauri-apps/plugin-fs'); texts.push(await readTextFile(f.path)); } catch { /* */ } }
-                  }
-                  const combined = texts.filter(Boolean).join('\n\n---\n\n');
-                  if (combined.trim()) setDoc(d => ({ ...d, content: d.content ? `${d.content}\n\n---\n\n${combined}` : combined }));
-                }} />
+            {/* Tip: use sidebar to import documents */}
+            <div className="border-t border-white/[0.06] pt-4 pb-1">
+              <p className="text-[11px] text-slate-600 text-center flex items-center justify-center gap-1.5">
+                <FolderUp size={12} /> Drop files into the sidebar to import — click <PenTool size={10} className="text-purple-400" /> to load into Writer
+              </p>
             </div>
 
             </>}
