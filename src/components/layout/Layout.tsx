@@ -128,7 +128,7 @@ export function Layout({ tabs }: LayoutProps) {
               className={isActive ? 'flex-1 flex flex-col overflow-hidden' : 'hidden'}
             >
               {isFullBleed ? (
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 flex flex-col overflow-hidden">
                   {tabs[tab.id]}
                 </div>
               ) : (

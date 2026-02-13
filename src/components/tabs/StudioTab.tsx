@@ -246,7 +246,7 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
   // RENDER
   // ═════════════════════════════════════════════════════════════════
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Sub-tab toggle */}
       <div className="flex-shrink-0 border-b border-white/[0.06] bg-gray-900/40 px-4">
         <div className="flex gap-1">
