@@ -416,7 +416,12 @@ export function WorkshopTab() {
       );
     }
     if (selectedFile.docType === 'pdf') {
-      return <iframe ref={iframeRef} src={`${selectedFile.objectUrl}#page=${currentPage}`} className="border-0 w-full h-full" title={selectedFile.name} style={{ minHeight: '100%' }} />;
+      return (
+        <div className="absolute inset-0">
+          <iframe ref={iframeRef} src={`${selectedFile.objectUrl}#page=${currentPage}`} className="border-0" title={selectedFile.name}
+            style={{ width: '100%', height: '100%' }} />
+        </div>
+      );
     }
     if (selectedFile.docType === 'md') {
       return <div className={docPageClass} style={docPageStyle({ padding: '2.5rem 3rem' })}><div className="prose prose-lg max-w-none leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedFile.content || '', 'light') }} /></div>;
