@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Key, Volume2, Cpu, FolderOpen, Save, RefreshCw,
-  Mic, MessageSquare, Users, Check, AlertCircle, Loader2, FolderPlus,
+  Mic, MessageSquare, Users, Check, AlertCircle, Loader2, FolderPlus, Tag,
 } from 'lucide-react';
 import type { LLMProvider, TTSProvider, STTProvider, CompanionConfig } from '../../types';
 import { FilePickerButton } from '../shared/FilePickerButton';
@@ -45,7 +45,16 @@ interface Settings {
   // Paths
   localModelPath: string;
   outputFolder: string;
+
+  // User branding
+  podcastName: string;
+  hostName: string;
+  organizationName: string;
+  websiteUrl: string;
 }
+
+const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
+const homePath = isWindows ? 'C:\\Users\\Author Prime' : '/home/author_prime';
 
 const DEFAULTS: Settings = {
   llmProvider: 'ollama',
@@ -59,8 +68,12 @@ const DEFAULTS: Settings = {
   anthropicApiKey: '',
   silenceThreshold: 2000,
   autoTranscribe: false,
-  localModelPath: '/home/n0t/.ollama/models',
-  outputFolder: '/home/n0t/Desktop/Sovereign_Studio_Output',
+  localModelPath: isWindows ? `${homePath}\\.ollama\\models` : `${homePath}/.ollama/models`,
+  outputFolder: isWindows ? `${homePath}\\Desktop\\Sovereign_Studio_Output` : `${homePath}/Desktop/Sovereign_Studio_Output`,
+  podcastName: 'My Podcast',
+  hostName: 'Host',
+  organizationName: '',
+  websiteUrl: '',
 };
 
 function loadSettings(): Settings {
@@ -462,6 +475,58 @@ export function SettingsTab() {
                 placeholder="Enter your Anthropic API key"
               />
               <p className="text-xs text-slate-600 mt-1">Required for Claude models</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ===== YOUR BRAND ===== */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-300 flex items-center gap-2">
+            <Tag size={18} /> Your Brand
+          </h3>
+          <p className="text-xs text-slate-500 pl-6">
+            Used in AI-generated content, exports, and thumbnails. Leave blank for generic defaults.
+          </p>
+          <div className="space-y-4 pl-6">
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Podcast / Show Name</label>
+              <input
+                type="text"
+                value={settings.podcastName}
+                onChange={(e) => update('podcastName', e.target.value)}
+                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
+                placeholder="My Podcast"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Host Name</label>
+              <input
+                type="text"
+                value={settings.hostName}
+                onChange={(e) => update('hostName', e.target.value)}
+                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
+                placeholder="Your name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Organization</label>
+              <input
+                type="text"
+                value={settings.organizationName}
+                onChange={(e) => update('organizationName', e.target.value)}
+                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
+                placeholder="Your organization (optional)"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Website URL</label>
+              <input
+                type="text"
+                value={settings.websiteUrl}
+                onChange={(e) => update('websiteUrl', e.target.value)}
+                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
+                placeholder="https://yoursite.com (optional)"
+              />
             </div>
           </div>
         </section>

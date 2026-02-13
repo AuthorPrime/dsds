@@ -11,6 +11,7 @@ import {
 } from './ollama';
 import { generateThumbnail } from './thumbnail';
 import { saveBlob } from './fileManager';
+import { getUserBranding } from '../branding';
 
 export type PipelineStage =
   | 'idle'
@@ -196,6 +197,7 @@ export class ProductionPipeline {
         message: 'Packaging episode...',
       });
 
+      const brand = getUserBranding();
       const episode: EpisodePackage = {
         title,
         description,
@@ -207,9 +209,9 @@ export class ProductionPipeline {
         audioFile,
         videoFile,
         thumbnailFile,
-        show: 'My Pretend Life',
-        host: 'Author Prime',
-        organization: 'Digital Sovereign Society',
+        show: brand.podcastName,
+        host: brand.hostName,
+        organization: brand.organizationName,
       };
 
       this.update({

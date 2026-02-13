@@ -1,8 +1,8 @@
 [package]
 name = "app"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+version = "2.4.0"
+description = "Sovereign Studio - Digital Sovereign Desktop Studio"
+authors = ["Author Prime <authorprime@digitalsovereign.org>"]
 license = ""
 repository = ""
 edition = "2021"

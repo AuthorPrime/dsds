@@ -3,7 +3,7 @@
  * Generates a 1280x720 podcast thumbnail using the DSDS brand palette
  */
 
-import { BRANDING } from '../branding';
+import { BRANDING, getUserBranding } from '../branding';
 
 export interface ThumbnailOptions {
   title: string;
@@ -19,11 +19,12 @@ export interface ThumbnailOptions {
  * Uses canvas 2D API — works in browser and Tauri webview.
  */
 export function generateThumbnail(options: ThumbnailOptions): string {
+  const brand = getUserBranding();
   const {
     title,
     episodeNumber,
-    showName = BRANDING.podcast.name,
-    hostName = BRANDING.podcast.host,
+    showName = brand.podcastName,
+    hostName = brand.hostName,
     width = 1280,
     height = 720,
   } = options;
@@ -128,7 +129,7 @@ export function generateThumbnail(options: ThumbnailOptions): string {
   dssGrad.addColorStop(0, BRANDING.colors.primary);
   dssGrad.addColorStop(1, BRANDING.colors.secondary);
   ctx.fillStyle = dssGrad;
-  ctx.fillText(BRANDING.dss.shortName, width - 60, height - 40);
+  ctx.fillText(brand.orgAbbreviation || 'SS', width - 60, height - 40);
 
   return canvas.toDataURL('image/png');
 }

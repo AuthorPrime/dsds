@@ -1,7 +1,7 @@
 {
   "name": "dsds",
-  "version": "0.1.0",
-  "description": "Digital Sovereign Desktop Studio - A sovereign content creation suite with local AI, offline capability, and zero vendor lock-in",
+  "version": "2.4.0",
+  "description": "Sovereign Studio - A sovereign content creation suite with local AI, offline capability, and zero vendor lock-in",
   "private": true,
   "type": "module",
   "repository": {

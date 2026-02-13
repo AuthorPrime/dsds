@@ -17,13 +17,20 @@ export interface AppSettings {
   autoTranscribe: boolean;
   localModelPath: string;
   outputFolder: string;
+  // User branding (used in AI prompts, exports, thumbnails)
+  podcastName: string;
+  hostName: string;
+  organizationName: string;
+  websiteUrl: string;
+  // Onboarding
+  hasCompletedOnboarding: boolean;
 }
 
 // Platform-aware default paths
 const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
 const homePath = isWindows ? 'C:\\Users\\Author Prime' : '/home/author_prime';
 
-const DEFAULTS: AppSettings = {
+export const DEFAULTS: AppSettings = {
   llmProvider: 'ollama',
   llmModel: 'llama3.2',
   ttsProvider: 'gemini',
@@ -37,6 +44,11 @@ const DEFAULTS: AppSettings = {
   autoTranscribe: false,
   localModelPath: isWindows ? `${homePath}\\.ollama\\models` : `${homePath}/.ollama/models`,
   outputFolder: isWindows ? `${homePath}\\Desktop\\Sovereign_Studio_Output` : `${homePath}/Desktop/Sovereign_Studio_Output`,
+  podcastName: 'My Podcast',
+  hostName: 'Host',
+  organizationName: '',
+  websiteUrl: '',
+  hasCompletedOnboarding: false,
 };
 
 export function getSettings(): AppSettings {

@@ -15,10 +15,36 @@
     "shell:default",
     "shell:allow-open",
     "shell:allow-execute",
+    "shell:allow-spawn",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
     "fs:allow-mkdir",
-    "fs:allow-exists"
+    "fs:allow-exists",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "kill-ollama-win",
+          "cmd": "taskkill",
+          "args": ["/F", "/IM", "ollama.exe"]
+        },
+        {
+          "name": "start-ollama-win",
+          "cmd": "cmd",
+          "args": ["/C", "start", "/B", "ollama", "serve"]
+        },
+        {
+          "name": "kill-ollama-unix",
+          "cmd": "pkill",
+          "args": ["-f", "ollama"]
+        },
+        {
+          "name": "start-ollama-unix",
+          "cmd": "sh",
+          "args": ["-c", "nohup ollama serve > /dev/null 2>&1 &"]
+        }
+      ]
+    }
   ]
 }

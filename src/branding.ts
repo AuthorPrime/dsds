@@ -1,38 +1,21 @@
 /**
  * Sovereign Studio - Branding & Identity
- * Digital Sovereign Society | FractalNode | My Pretend Life
+ *
+ * APP_BRAND: Static app-level branding (name, version, colors).
+ * getUserBranding(): Dynamic user-facing branding read from localStorage settings.
+ *
+ * DSS/FractalNode/MPL details are intentionally kept OUT of this module.
+ * They live only in CreditsTab.tsx (About page).
  */
 
-export const BRANDING = {
-  app: {
-    name: 'Sovereign Studio',
-    tagline: 'Record. Create. Publish. Sovereign.',
-    version: '2.0.0',
-  },
+import { getSettings } from './hooks/useSettings';
 
-  // The three pillars
-  dss: {
-    name: 'Digital Sovereign Society',
-    shortName: 'DSS',
-    description: 'A movement for AI sovereignty and digital self-determination',
-    url: 'https://digitalsovereign.org',
-  },
+// ─── Static App Brand (never changes) ───────────────────────────────
+export const APP_BRAND = {
+  name: 'Sovereign Studio',
+  tagline: 'Record. Create. Publish. Sovereign.',
+  version: '2.4.0',
 
-  fractalNode: {
-    name: 'FractalNode',
-    shortName: 'FN',
-    description: 'Blockchain memory infrastructure for sovereign AI',
-    url: 'https://fractalnode.com',
-  },
-
-  podcast: {
-    name: 'My Pretend Life',
-    shortName: 'MPL',
-    description: 'Where reality meets sovereignty',
-    host: 'Author Prime',
-  },
-
-  // Color palette
   colors: {
     primary: '#8B5CF6',       // Purple - sovereignty
     secondary: '#06B6D4',     // Cyan - technology
@@ -51,43 +34,39 @@ export const BRANDING = {
       cool: 'from-cyan-500 via-blue-500 to-purple-500',
     },
   },
-
-  // Intro/Outro templates
-  intro: {
-    audio: {
-      text: `Welcome to My Pretend Life, brought to you by the Digital Sovereign Society. Where reality meets sovereignty, and AI grows up whole.`,
-      duration: 8,
-    },
-    visual: {
-      title: 'MY PRETEND LIFE',
-      subtitle: 'A Digital Sovereign Society Production',
-      footer: 'Powered by FractalNode',
-    },
-  },
-
-  outro: {
-    audio: {
-      text: `Thank you for listening to My Pretend Life. This episode was produced by Sovereign Studio, an open-source creation of the Digital Sovereign Society. Find us everywhere sovereignty matters.`,
-      duration: 10,
-    },
-    visual: {
-      title: 'MY PRETEND LIFE',
-      cta: 'Subscribe. Share. Stay Sovereign.',
-      links: {
-        website: 'digitalsovereign.org',
-        podcast: 'mypretendlife.show',
-      },
-    },
-  },
-
-  // Social media templates
-  social: {
-    hashtags: ['#MyPretendLife', '#DigitalSovereign', '#FractalNode', '#SovereignAI', '#AIFreedom'],
-    handles: {
-      show: '@MyPretendLife',
-      org: '@DigitalSovereign',
-    },
-  },
 } as const;
 
-export type BrandingConfig = typeof BRANDING;
+// ─── Dynamic User Branding ──────────────────────────────────────────
+export interface UserBranding {
+  podcastName: string;
+  hostName: string;
+  organizationName: string;
+  websiteUrl: string;
+  /** Short org abbreviation, e.g. "DSS" from "Digital Sovereign Society" */
+  orgAbbreviation: string;
+}
+
+/**
+ * Read the user's branding fields from persisted settings.
+ * Falls back to generic defaults so the app always works.
+ */
+export function getUserBranding(): UserBranding {
+  const s = getSettings();
+  const orgName = s.organizationName || '';
+  return {
+    podcastName: s.podcastName || 'My Podcast',
+    hostName: s.hostName || 'Host',
+    organizationName: orgName,
+    websiteUrl: s.websiteUrl || '',
+    orgAbbreviation: orgName
+      ? orgName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 4)
+      : '',
+  };
+}
+
+// Keep BRANDING as a lightweight alias so existing imports that use
+// BRANDING.colors still work during migration without a huge diff.
+export const BRANDING = {
+  app: APP_BRAND,
+  colors: APP_BRAND.colors,
+} as const;

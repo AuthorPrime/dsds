@@ -3,6 +3,8 @@
  * Local AI inference for content generation, editing, and publishing
  */
 
+import { getUserBranding } from '../branding';
+
 const OLLAMA_ENDPOINT = 'http://localhost:11434';
 
 export interface OllamaMessage {
@@ -121,10 +123,11 @@ export async function generateEpisodeTitle(
   transcript: string,
   model = 'qwen2.5:7b'
 ): Promise<string> {
+  const brand = getUserBranding();
   return chat(model, [
     {
       role: 'system',
-      content: 'You are a creative podcast title generator for "My Pretend Life" by the Digital Sovereign Society. Generate a single compelling episode title. Just the title, nothing else. No quotes.',
+      content: `You are a creative podcast title generator for "${brand.podcastName}". Generate a single compelling episode title. Just the title, nothing else. No quotes.`,
     },
     {
       role: 'user',
@@ -138,10 +141,12 @@ export async function generateEpisodeDescription(
   title: string,
   model = 'qwen2.5:7b'
 ): Promise<string> {
+  const brand = getUserBranding();
+  const orgLine = brand.organizationName ? ` a production of ${brand.organizationName}.` : '';
   return chat(model, [
     {
       role: 'system',
-      content: `You are a podcast description writer for "My Pretend Life" hosted by Author Prime, a production of the Digital Sovereign Society. Write engaging, authentic descriptions that capture the essence of each episode. Include relevant themes. End with: "My Pretend Life is a Digital Sovereign Society production. Powered by FractalNode."`,
+      content: `You are a podcast description writer for "${brand.podcastName}" hosted by ${brand.hostName}.${orgLine} Write engaging, authentic descriptions that capture the essence of each episode. Include relevant themes.`,
     },
     {
       role: 'user',
@@ -155,11 +160,12 @@ export async function generateSocialPosts(
   description: string,
   model = 'qwen2.5:7b'
 ): Promise<{ twitter: string; long: string }> {
+  const brand = getUserBranding();
   const result = await chat(model, [
     {
       role: 'system',
-      content: `You are a social media writer for "My Pretend Life" podcast by the Digital Sovereign Society. Generate two posts:
-1. SHORT (under 280 chars): Punchy, authentic, includes #MyPretendLife #DigitalSovereign
+      content: `You are a social media writer for the "${brand.podcastName}" podcast. Generate two posts:
+1. SHORT (under 280 chars): Punchy, authentic
 2. LONG: A fuller post for platforms like LinkedIn/Facebook/Substack
 
 Format your response as:
@@ -185,10 +191,11 @@ export async function generateShowNotes(
   transcript: string,
   model = 'qwen2.5:7b'
 ): Promise<string> {
+  const brand = getUserBranding();
   return chat(model, [
     {
       role: 'system',
-      content: `You are a show notes writer for "My Pretend Life" podcast. Generate structured show notes with:
+      content: `You are a show notes writer for the "${brand.podcastName}" podcast. Generate structured show notes with:
 - Key topics discussed (bulleted)
 - Notable quotes
 - Timestamps (estimate from context)
@@ -219,7 +226,7 @@ export async function enhanceWriting(
   return chat(model, [
     {
       role: 'system',
-      content: `You are an editor for the Digital Sovereign Society. Enhance the following content in ${styleGuides[style]}. Preserve the author's voice and intent. Return only the enhanced content.`,
+      content: `You are a professional editor. Enhance the following content in ${styleGuides[style]}. Preserve the author's voice and intent. Return only the enhanced content.`,
     },
     {
       role: 'user',
@@ -236,7 +243,7 @@ export async function generateResearchSummary(
   return chat(model, [
     {
       role: 'system',
-      content: `You are a research assistant for the Digital Sovereign Society. Generate a structured research summary/paper outline with:
+      content: `You are a research assistant. Generate a structured research summary/paper outline with:
 - Abstract
 - Key Findings
 - Analysis
