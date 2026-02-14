@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  Upload, FileText, Trash2, ZoomIn, ZoomOut, ChevronLeft, ChevronRight,
+  Upload, FileText, Trash2, ZoomIn, ZoomOut,
   Copy, Check, Download, FileAudio, Loader2, CheckCircle,
   Mic, MicOff, AlertCircle, BookOpen, Sparkles, PenTool, FileImage,
   GraduationCap, Newspaper, AlignLeft, Volume2, VolumeX, FolderUp,
@@ -171,8 +171,6 @@ export function WorkshopTab() {
 
   // ─── VIEW state ────────────────────────────────────────────────
   const [zoom, setZoom] = useState(100);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages] = useState(1);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -234,7 +232,7 @@ export function WorkshopTab() {
     return () => { files.forEach(f => { if (f.objectUrl) URL.revokeObjectURL(f.objectUrl); }); };
   }, [files]);
 
-  useEffect(() => { setCurrentPage(1); setLoading(true); const t = setTimeout(() => setLoading(false), 300); return () => clearTimeout(t); }, [selectedFile?.id]);
+  useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 300); return () => clearTimeout(t); }, [selectedFile?.id]);
 
   useEffect(() => {
     async function check() {
@@ -418,7 +416,7 @@ export function WorkshopTab() {
     if (selectedFile.docType === 'pdf') {
       return (
         <div className="absolute inset-0">
-          <iframe ref={iframeRef} src={`${selectedFile.objectUrl}#page=${currentPage}`} className="border-0" title={selectedFile.name}
+          <iframe ref={iframeRef} src={selectedFile.objectUrl} className="border-0" title={selectedFile.name}
             style={{ width: '100%', height: '100%' }} />
         </div>
       );
@@ -518,16 +516,16 @@ export function WorkshopTab() {
           {selectedFile && (selectedFile.kind === 'document' || (selectedFile.kind === 'audio' && selectedFile.transcript)) ? (
             <div className="flex-1 flex flex-col min-h-0">
               <div className="h-11 border-b border-white/[0.06] flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-                <div className="flex items-center gap-2">
-                  <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
-                  <span className="text-xs text-gray-400 w-12 text-center">{zoom}%</span>
-                  <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.min(200, z + 10))}><ZoomIn size={16} /></button>
-                </div>
-                {selectedFile.docType === 'pdf' && (
+                {/* Zoom controls — only for text/markdown views (PDF iframe has its own zoom) */}
+                {selectedFile.docType !== 'pdf' ? (
                   <div className="flex items-center gap-2">
-                    <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setCurrentPage(p => Math.max(1, p - 1))}><ChevronLeft size={16} /></button>
-                    <span className="text-xs text-gray-400">Page {currentPage} / {totalPages}</span>
-                    <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}><ChevronRight size={16} /></button>
+                    <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
+                    <span className="text-xs text-gray-400 w-12 text-center">{zoom}%</span>
+                    <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.min(200, z + 10))}><ZoomIn size={16} /></button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">PDF viewer has built-in zoom & navigation</span>
                   </div>
                 )}
                 <div className="flex items-center gap-1.5">
@@ -537,7 +535,10 @@ export function WorkshopTab() {
                       {copied ? <><Check size={12} className="text-emerald-400" /> Copied</> : <><Copy size={12} /> Copy</>}
                     </button>
                   )}
-                  <button onClick={() => openInEditor(selectedFile)} className="px-2.5 py-1 bg-purple-700/60 hover:bg-purple-600/60 rounded text-xs flex items-center gap-1.5"><PenTool size={12} /> Edit</button>
+                  {/* Edit button — only for files with text content (not PDFs) */}
+                  {selectedFile.docType !== 'pdf' && (
+                    <button onClick={() => openInEditor(selectedFile)} className="px-2.5 py-1 bg-purple-700/60 hover:bg-purple-600/60 rounded text-xs flex items-center gap-1.5"><PenTool size={12} /> Edit</button>
+                  )}
                   <button onClick={async () => {
                     if (selectedFile.docType === 'pdf' && selectedFile.objectUrl) { try { const r = await fetch(selectedFile.objectUrl); const b = await r.blob(); await saveBlob('publications', selectedFile.name, b); } catch { const a = document.createElement('a'); a.href = selectedFile.objectUrl!; a.download = selectedFile.name; a.click(); } }
                     else { const text = selectedFile.content || selectedFile.transcript || ''; await saveFile('publications', selectedFile.name, text); }
@@ -771,7 +772,7 @@ export function WorkshopTab() {
                   <div className="flex gap-1.5">
                     {liveTranscript && <>
                       <button onClick={() => navigator.clipboard.writeText(liveTranscript).catch(() => {})} className="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-gray-200" title="Copy"><Copy size={14} /></button>
-                      <button onClick={async () => await saveFile('transcripts', 'live-transcript.txt', liveTranscript)} className="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-gray-200" title="Save"><Download size={14} /></button>
+                      <button onClick={async () => { const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19); await saveFile('transcripts', `live-transcript-${ts}.txt`, liveTranscript); }} className="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-gray-200" title="Save"><Download size={14} /></button>
                       <button onClick={() => { setLiveTranscript(''); setInterimText(''); }} className="p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-red-400" title="Clear"><Trash2 size={14} /></button>
                       <button onClick={() => { if (liveTranscript) { setDoc(d => ({ ...d, content: d.content ? `${d.content}\n\n${liveTranscript}` : liveTranscript })); setSubTab('write'); } }}
                         className="px-2.5 py-1 bg-purple-700/60 hover:bg-purple-600/60 rounded text-xs flex items-center gap-1.5"><PenTool size={12} /> Edit</button>
