@@ -142,7 +142,7 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
   const isSessionActiveRef = useRef(false);
 
   useEffect(() => {
-    loadCompanion(settings.activeCompanion).then(c => { if (c) setCompanion(c); });
+    loadCompanion(settings.activeCompanion).then(c => { if (c) setCompanion(c); }).catch(err => console.warn('Failed to load companion:', err));
   }, [settings.activeCompanion]);
 
   const companionName = companion?.name ?? DEFAULT_PERSONA.name;
@@ -200,7 +200,7 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
         await enumerateAudioDevices();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); stream.getTracks().forEach(t => t.stop());
         await startListening();
-        if (aiEnabled) { if (isOllamaMode) { await connectOllama(); setTimeout(() => startSpeechRecognition(), 300); } else if (effectiveApiKey) connectGemini(); }
+        if (aiEnabled) { if (isOllamaMode) { await connectOllama(); setTimeout(() => startSpeechRecognition(), 300); } else if (effectiveApiKey) await connectGemini(); }
         setIsSessionActive(true); isSessionActiveRef.current = true; incrementStat('totalSessions');
       } catch (err) {
         if (err instanceof Error) { if (err.name === 'NotAllowedError') setMicError('Microphone access denied.'); else if (err.name === 'NotFoundError') setMicError('No microphone found.'); else setMicError(`Mic error: ${err.message}`); } else setMicError('Mic error: Unknown');
@@ -232,7 +232,7 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
     const ok = await isOllamaAvailable(); setProdOllamaReady(ok);
     if (ok) { const m = await listModels(); setProdModels(m); if (m.length > 0 && !m.includes(selectedModel)) setSelectedModel(m[0]); }
   }
-  async function runPipeline() { if (!transcript.trim()) return; try { await pipeline.produce(transcript); } catch { /* */ } }
+  async function runPipeline() { if (!transcript.trim()) return; try { await pipeline.produce(transcript); } catch (err) { console.error('Pipeline error:', err); } }
   async function handleDownloadThumbnail() {
     const ep = pState.episode as Partial<EpisodePackage>;
     if (!ep.thumbnailFile) return;

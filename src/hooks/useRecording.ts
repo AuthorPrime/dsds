@@ -18,6 +18,7 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const aiAudioStreamRef = useRef<MediaStream | null>(null);
@@ -33,6 +34,10 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
     if (videoStreamRef.current) {
       videoStreamRef.current.getTracks().forEach(track => track.stop());
       videoStreamRef.current = null;
+    }
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(track => track.stop());
+      micStreamRef.current = null;
     }
     if (audioContextRef.current) {
       audioContextRef.current.close();
@@ -83,6 +88,7 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
 
       // Get microphone audio for recording
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = micStream;
       const micSource = audioContext.createMediaStreamSource(micStream);
       micSource.connect(destination);
 
@@ -132,7 +138,7 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        downloadRecording(blob);
+        downloadRecording(blob).catch(err => console.error('Failed to save recording:', err));
         cleanup();
       };
 
