@@ -6,7 +6,6 @@
 
   permissions:
     contents: write
-
   jobs:
     build:
       strategy:
