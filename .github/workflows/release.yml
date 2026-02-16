@@ -6,7 +6,7 @@
 
   permissions:
     contents: write
-  jobs:
+jobs:
     build:
       strategy:
         fail-fast: false
@@ -50,8 +50,7 @@
               src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
               src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm
               src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-
-    release:
+release:
       needs: build
       runs-on: ubuntu-latest
       if: startsWith(github.ref, 'refs/tags/v')
