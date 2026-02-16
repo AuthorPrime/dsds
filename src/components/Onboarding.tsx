@@ -47,22 +47,22 @@ function DotGrid() {
 function StepIndicator({ current, steps }: { current: Step; steps: Step[] }) {
   const idx = steps.indexOf(current);
   return (
-    <div className="flex items-center gap-2 justify-center">
+    <div className="flex items-center gap-phi-3 justify-center">
       {steps.map((step, i) => (
-        <div key={step} className="flex items-center gap-2">
+        <div key={step} className="flex items-center gap-phi-3">
           <div className={`
-            w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-500
+            w-phi-5 h-phi-5 rounded-full flex items-center justify-center text-phi-sm font-bold transition-all duration-500
             ${i < idx
-              ? 'bg-gradient-to-br from-purple-500 to-cyan-500 text-white shadow-md shadow-purple-500/20'
+              ? 'bg-gradient-to-br from-purple-500 to-cyan-500 text-white shadow-phi-md shadow-purple-500/30'
               : i === idx
-                ? 'border-2 border-purple-400 text-purple-300 bg-purple-500/10'
+                ? 'border-2 border-purple-400 text-purple-300 bg-purple-500/15 shadow-glow-purple'
                 : 'border-2 border-gray-700/60 text-gray-600'
             }
           `}>
-            {i < idx ? <Check size={14} /> : i + 1}
+            {i < idx ? <Check size={16} /> : i + 1}
           </div>
           {i < steps.length - 1 && (
-            <div className={`w-10 h-0.5 rounded transition-all duration-500 ${i < idx ? 'bg-gradient-to-r from-purple-500 to-cyan-500' : 'bg-gray-800'}`} />
+            <div className={`w-phi-5 h-[2px] rounded transition-all duration-500 ${i < idx ? 'bg-gradient-to-r from-purple-500 to-cyan-500' : 'bg-gray-800'}`} />
           )}
         </div>
       ))}
@@ -75,13 +75,13 @@ function FeatureCard({ icon: Icon, title, desc, accent }: {
   icon: typeof Mic; title: string; desc: string; accent: string;
 }) {
   return (
-    <div className={`flex items-start gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-${accent}/30 transition-all`}>
-      <div className={`p-2 rounded-lg bg-${accent}/10 text-${accent} flex-shrink-0`}>
-        <Icon size={18} />
+    <div className={`flex items-start gap-phi-3 p-phi-4 rounded-phi-xl bg-white/[0.03] border border-white/[0.08] hover:border-${accent}/40 transition-all duration-300 hover:bg-white/[0.05] hover:shadow-phi-md`}>
+      <div className={`p-phi-3 rounded-phi-lg bg-${accent}/15 text-${accent} flex-shrink-0`}>
+        <Icon size={20} />
       </div>
       <div>
-        <h4 className="text-sm font-semibold text-slate-200">{title}</h4>
-        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{desc}</p>
+        <h4 className="text-phi-sm font-semibold text-slate-200">{title}</h4>
+        <p className="text-phi-xs text-slate-500 mt-phi-2 leading-relaxed">{desc}</p>
       </div>
     </div>
   );
@@ -222,9 +222,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="relative z-10 max-w-xl w-full mx-6">
+      <div className="relative z-10 max-w-2xl w-full mx-phi-6">
         {/* Step indicator */}
-        <div className="mb-8">
+        <div className="mb-phi-6">
           <StepIndicator current={step} steps={STEPS} />
         </div>
 
@@ -232,21 +232,21 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         <div className={`transition-all duration-300 ${fadeClass}`}>
           {/* ─── STEP 1: WELCOME ─── */}
           {step === 'welcome' && (
-            <div className="text-center space-y-6">
+            <div className="text-center space-y-phi-5">
               <div className="relative inline-block">
-                <Sparkles size={48} className="text-purple-400 breathe mx-auto" />
+                <Sparkles size={55} className="text-purple-400 breathe mx-auto" />
               </div>
 
               <div>
-                <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400">
+                <h1 className="text-phi-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400 leading-tight">
                   Welcome to Sovereign Studio
                 </h1>
-                <p className="text-slate-500 text-sm mt-2">
+                <p className="text-slate-500 text-phi-md mt-phi-3">
                   Your AI-powered creative studio. Record, write, and publish — all from your machine.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-phi-4 text-left">
                 <FeatureCard
                   icon={Radio}
                   title="AI Co-Host"
@@ -274,8 +274,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               </div>
 
               <button onClick={next}
-                className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 via-violet-500 to-cyan-600 rounded-xl font-semibold text-white shadow-lg shadow-purple-500/20 hover:scale-[1.02] transition-all">
-                Get Started <ArrowRight size={18} />
+                className="inline-flex items-center gap-phi-3 px-phi-6 py-phi-4 bg-gradient-to-r from-purple-600 via-violet-500 to-cyan-600 rounded-phi-xl font-semibold text-phi-md text-white shadow-phi-lg shadow-purple-500/30 hover:scale-[1.02] hover:shadow-glow-purple transition-all duration-300">
+                Get Started <ArrowRight size={20} />
               </button>
 
               <p className="text-[11px] text-slate-600">v{APP_BRAND.version}</p>

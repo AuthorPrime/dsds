@@ -81,31 +81,31 @@ export function Layout({ tabs }: LayoutProps) {
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-gray-100 flex flex-col">
       {/* ─── Title Bar ─── */}
       <div
-        className="h-12 bg-black/80 flex items-center justify-between px-6 border-b border-white/[0.06] flex-shrink-0 backdrop-blur-sm"
+        className="h-[3.4375rem] bg-black/80 flex items-center justify-between px-phi-6 border-b border-white/[0.08] flex-shrink-0 backdrop-blur-sm"
         data-tauri-drag-region
       >
-        <div className="flex items-center gap-3">
-          <Sparkles size={17} className="text-purple-400/80" />
-          <span className="text-sm font-semibold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400">
+        <div className="flex items-center gap-phi-3">
+          <Sparkles size={18} className="text-purple-400/90" />
+          <span className="text-base font-semibold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400">
             Sovereign Studio
           </span>
-          <span className="text-[11px] text-slate-600 font-mono">v{APP_BRAND.version}</span>
+          <span className="text-phi-xs text-slate-600 font-mono">v{APP_BRAND.version}</span>
         </div>
       </div>
 
       {/* ─── Tab Navigation ─── */}
-      <div className="bg-gray-900/60 border-b border-white/[0.06] flex-shrink-0">
-        <div className="flex justify-center px-4 gap-1">
+      <div className="bg-gray-900/50 border-b border-white/[0.08] flex-shrink-0">
+        <div className="flex justify-center px-phi-4 gap-phi-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
-                flex items-center gap-2.5 px-7 py-3 text-sm font-medium transition-all
-                border-b-2 -mb-[1px] whitespace-nowrap
+                flex items-center gap-phi-3 px-phi-5 py-phi-3 text-phi-sm font-medium transition-all duration-300
+                border-b-2 -mb-[1px] whitespace-nowrap rounded-t-phi-md
                 ${activeTab === tab.id
-                  ? 'text-purple-300 border-purple-500 bg-purple-500/[0.06]'
-                  : 'text-gray-500 border-transparent hover:text-gray-300 hover:bg-white/[0.03]'
+                  ? 'text-purple-300 border-purple-500 bg-purple-500/[0.08] shadow-glow-purple'
+                  : 'text-gray-500 border-transparent hover:text-gray-300 hover:bg-white/[0.04]'
                 }
               `}
             >
@@ -133,7 +133,7 @@ export function Layout({ tabs }: LayoutProps) {
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto">
-                  <div className="max-w-4xl mx-auto px-10 py-8">
+                  <div className="max-w-5xl mx-auto px-phi-6 py-phi-6">
                     {tabs[tab.id]}
                   </div>
                 </div>
@@ -145,15 +145,15 @@ export function Layout({ tabs }: LayoutProps) {
 
       {/* ─── Keyboard Shortcut Overlay ─── */}
       {showShortcuts && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center"
           onClick={() => setShowShortcuts(false)}>
-          <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl"
+          <div className="bg-gray-900/95 border border-white/10 rounded-phi-xl p-phi-5 max-w-md w-full mx-phi-4 shadow-phi-xl shadow-glow-purple"
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-2 mb-4">
-              <Command size={16} className="text-purple-400" />
-              <h3 className="text-sm font-bold text-slate-200">Keyboard Shortcuts</h3>
+            <div className="flex items-center gap-phi-3 mb-phi-4">
+              <Command size={18} className="text-purple-400" />
+              <h3 className="text-phi-md font-bold text-slate-200">Keyboard Shortcuts</h3>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-phi-3">
               {[
                 { keys: 'Ctrl + 1', action: 'Studio' },
                 { keys: 'Ctrl + 2', action: 'Workshop' },
@@ -161,30 +161,30 @@ export function Layout({ tabs }: LayoutProps) {
                 { keys: 'Ctrl + 4', action: 'About' },
                 { keys: 'Ctrl + /', action: 'Toggle this panel' },
               ].map(s => (
-                <div key={s.keys} className="flex items-center justify-between py-1.5">
-                  <span className="text-xs text-slate-400">{s.action}</span>
-                  <kbd className="px-2 py-0.5 bg-white/[0.06] border border-white/10 rounded text-[11px] text-slate-300 font-mono">
+                <div key={s.keys} className="flex items-center justify-between py-phi-2">
+                  <span className="text-phi-sm text-slate-400">{s.action}</span>
+                  <kbd className="px-phi-3 py-phi-2 bg-white/[0.08] border border-white/10 rounded-phi-md text-phi-xs text-slate-300 font-mono">
                     {s.keys}
                   </kbd>
                 </div>
               ))}
             </div>
-            <p className="text-[10px] text-slate-600 mt-4 text-center">Press Esc or click outside to close</p>
+            <p className="text-phi-xs text-slate-600 mt-phi-4 text-center">Press Esc or click outside to close</p>
           </div>
         </div>
       )}
 
       {/* ─── Status Bar ─── */}
-      <div className="h-6 bg-black/50 border-t border-white/[0.04] flex items-center justify-between px-4 flex-shrink-0">
-        <span className="text-[10px] text-slate-600 font-medium">
+      <div className="h-phi-4 bg-black/50 border-t border-white/[0.06] flex items-center justify-between px-phi-5 flex-shrink-0">
+        <span className="text-phi-xs text-slate-600 font-medium">
           Sovereign Studio
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-phi-4">
           <button onClick={() => setShowShortcuts(true)}
-            className="text-[10px] text-slate-700 hover:text-slate-500 transition-colors flex items-center gap-1">
-            <Command size={9} /> Ctrl+/
+            className="text-phi-xs text-slate-700 hover:text-slate-500 transition-colors flex items-center gap-phi-2">
+            <Command size={10} /> Ctrl+/
           </button>
-          <span className="text-[10px] text-slate-600">Sovereign AI &middot; Local First &middot; Own Everything</span>
+          <span className="text-phi-xs text-slate-600">Sovereign AI &middot; Local First &middot; Own Everything</span>
         </div>
       </div>
     </div>
