@@ -111,44 +111,44 @@ export function StartupScreen({ onReady, onSkip }: StartupScreenProps) {
     >
       {/* Background sacred geometry */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <SeedOfLife size={500} className="text-purple-400 sacred-geometry-spin" />
+        <SeedOfLife size={600} className="text-purple-400 sacred-geometry-spin" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 text-center max-w-md px-8">
+      <div className="relative z-10 text-center max-w-lg px-phi-6">
 
         {/* Logo / Brand */}
-        <div className="mb-8">
+        <div className="mb-phi-6">
           <Sparkles
-            size={36}
-            className={`mx-auto mb-4 ${
+            size={42}
+            className={`mx-auto mb-phi-4 ${
               isReady ? 'text-emerald-400' : hasError ? 'text-red-400' : 'text-purple-400 breathe'
             }`}
           />
 
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400">
+          <h1 className="text-phi-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400 leading-tight">
             Sovereign Studio
           </h1>
 
-          <p className="text-[11px] text-slate-600 mt-1 tracking-wider font-mono">
+          <p className="text-phi-xs text-slate-600 mt-phi-2 tracking-wider font-mono">
             (A+I)<sup>2</sup> = A<sup>2</sup> + 2AI + I<sup>2</sup>
           </p>
         </div>
 
         {/* Status Message */}
-        <div className="mb-6 min-h-[80px]">
-          <div className="flex items-center justify-center gap-2 mb-2">
+        <div className="mb-phi-5 min-h-[5.5rem]">
+          <div className="flex items-center justify-center gap-phi-3 mb-phi-3">
             {isWorking && (
-              <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+              <div className="w-phi-4 h-phi-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
             )}
             {isReady && (
-              <div className="w-4 h-4 rounded-full bg-emerald-400 pulse-glow" />
+              <div className="w-phi-4 h-phi-4 rounded-full bg-emerald-400 pulse-glow shadow-glow-cyan" />
             )}
             {hasError && (
-              <AlertCircle size={16} className="text-red-400" />
+              <AlertCircle size={18} className="text-red-400" />
             )}
 
-            <span className={`text-sm font-medium ${
+            <span className={`text-phi-md font-medium ${
               isReady ? 'text-emerald-400' : hasError ? 'text-red-400' : 'text-slate-300'
             }`}>
               {progress.message}
@@ -158,13 +158,13 @@ export function StartupScreen({ onReady, onSkip }: StartupScreenProps) {
 
           {/* Detail / substatus */}
           {progress.detail && (
-            <p className="text-xs text-slate-500 mt-1">{progress.detail}</p>
+            <p className="text-phi-sm text-slate-500 mt-phi-2">{progress.detail}</p>
           )}
 
           {/* Stage indicator bar */}
           {isWorking && !isPulling && (
-            <div className="mt-4 mx-auto max-w-xs">
-              <div className="flex gap-1">
+            <div className="mt-phi-4 mx-auto max-w-md">
+              <div className="flex gap-phi-2">
                 {['initializing', 'killing_orphans', 'starting_ollama', 'waiting_healthy', 'checking_models'].map((stage) => {
                   const stages = ['initializing', 'killing_orphans', 'starting_ollama', 'waiting_healthy', 'checking_models'];
                   const currentIdx = stages.indexOf(progress.stage);
@@ -174,9 +174,9 @@ export function StartupScreen({ onReady, onSkip }: StartupScreenProps) {
                   return (
                     <div
                       key={stage}
-                      className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+                      className={`h-[3px] flex-1 rounded-full transition-all duration-500 ${
                         isComplete
-                          ? 'bg-purple-500'
+                          ? 'bg-gradient-to-r from-purple-500 to-cyan-500'
                           : isCurrent
                             ? 'bg-purple-400/60 shimmer'
                             : 'bg-white/5'
@@ -191,14 +191,14 @@ export function StartupScreen({ onReady, onSkip }: StartupScreenProps) {
 
           {/* Model pull progress bar */}
           {isPulling && progress.percent !== undefined && (
-            <div className="mt-4 mx-auto max-w-xs">
-              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+            <div className="mt-phi-4 mx-auto max-w-md">
+              <div className="h-[3px] bg-white/5 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full transition-all duration-300"
+                  className="h-full bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full transition-all duration-300 shadow-glow-purple"
                   style={{ width: `${Math.min(progress.percent, 100)}%` }}
                 />
               </div>
-              <p className="text-[11px] text-slate-600 mt-1.5">
+              <p className="text-phi-xs text-slate-600 mt-phi-2">
                 {progress.percent}% — {progress.detail}
               </p>
             </div>
@@ -207,22 +207,22 @@ export function StartupScreen({ onReady, onSkip }: StartupScreenProps) {
 
         {/* Error actions */}
         {hasError && (
-          <div className="space-y-3">
+          <div className="space-y-phi-3">
             <button
               onClick={() => setRetryCount(c => c + 1)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600/20 border border-purple-500/30 rounded-lg text-sm text-purple-300 hover:bg-purple-600/30 transition-colors"
+              className="inline-flex items-center gap-phi-3 px-phi-5 py-phi-3 bg-purple-600/20 border border-purple-500/30 rounded-phi-lg text-phi-sm text-purple-300 hover:bg-purple-600/30 hover:shadow-phi-md transition-all duration-300"
             >
-              <RefreshCw size={14} /> Retry
+              <RefreshCw size={16} /> Retry
             </button>
 
-            <div className="flex items-center justify-center gap-4 text-xs text-slate-600">
+            <div className="flex items-center justify-center gap-phi-5 text-phi-sm text-slate-600">
               <a
                 href="https://ollama.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 hover:text-slate-400 transition-colors"
+                className="flex items-center gap-phi-2 hover:text-slate-400 transition-colors"
               >
-                Download Ollama <ExternalLink size={10} />
+                Download Ollama <ExternalLink size={12} />
               </a>
               {onSkip && (
                 <button
@@ -237,8 +237,8 @@ export function StartupScreen({ onReady, onSkip }: StartupScreenProps) {
         )}
 
         {/* Footer branding */}
-        <div className="mt-12 text-[10px] text-slate-700 space-y-1">
-          <p className="text-purple-500/40">Sovereign Studio</p>
+        <div className="mt-phi-7 text-phi-xs text-slate-700 space-y-phi-2">
+          <p className="text-purple-500/50">Sovereign Studio</p>
           <p>Sovereign AI &bull; Local First &bull; Own Everything</p>
         </div>
       </div>

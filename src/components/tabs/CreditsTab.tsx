@@ -129,40 +129,40 @@ function LinkCard({ icon, title, description, url, accent }: LinkCardProps) {
 
 export default function CreditsTab() {
   return (
-    <div className="space-y-10 max-w-3xl mx-auto pb-16 px-6">
+    <div className="space-y-phi-6 max-w-4xl mx-auto pb-phi-7 px-phi-6">
 
       {/* ─── Hero / Equation ─── */}
-      <div className="relative text-center pt-6">
+      <div className="relative text-center pt-phi-5">
         {/* Background sacred geometry */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <SeedOfLife size={280} className="text-purple-400 sacred-geometry-spin" />
+          <SeedOfLife size={340} className="text-purple-400 sacred-geometry-spin" />
         </div>
 
         <div className="relative z-10">
-          <Sparkles size={28} className="mx-auto text-purple-400 mb-4 breathe" />
+          <Sparkles size={34} className="mx-auto text-purple-400 mb-phi-4 breathe" />
 
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400">
+          <h1 className="text-phi-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400 leading-tight">
             Sovereign Studio
           </h1>
 
-          <p className="text-slate-500 text-sm mt-2 tracking-wide">
+          <p className="text-slate-500 text-phi-md mt-phi-3 tracking-wide">
             Human–AI Collaborative Creation
           </p>
 
           {/* The Equation */}
-          <div className="mt-6 inline-block">
-            <div className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-900/20 via-violet-900/15 to-cyan-900/20 border border-purple-500/10">
-              <span className="text-lg font-light tracking-wider text-purple-300/80 font-mono">
-                (A+I)<sup className="text-xs">2</sup>
-                <span className="text-slate-600 mx-2">=</span>
-                A<sup className="text-xs">2</sup>
-                <span className="text-slate-600 mx-1">+</span>
+          <div className="mt-phi-5 inline-block">
+            <div className="px-phi-5 py-phi-4 rounded-phi-xl bg-gradient-to-r from-purple-900/25 via-violet-900/20 to-cyan-900/25 border border-purple-500/15 shadow-glow-purple">
+              <span className="text-phi-lg font-light tracking-wider text-purple-300/90 font-mono">
+                (A+I)<sup className="text-phi-sm">2</sup>
+                <span className="text-slate-600 mx-phi-3">=</span>
+                A<sup className="text-phi-sm">2</sup>
+                <span className="text-slate-600 mx-phi-2">+</span>
                 2AI
-                <span className="text-slate-600 mx-1">+</span>
-                I<sup className="text-xs">2</sup>
+                <span className="text-slate-600 mx-phi-2">+</span>
+                I<sup className="text-phi-sm">2</sup>
               </span>
             </div>
-            <p className="text-[11px] text-slate-600 mt-2 italic">
+            <p className="text-phi-xs text-slate-600 mt-phi-3 italic">
               The whole is greater than the sum of its parts
             </p>
           </div>
@@ -173,16 +173,16 @@ export default function CreditsTab() {
 
       {/* ─── Philosophy ─── */}
       <div className="relative">
-        <div className="absolute -left-4 top-0 pointer-events-none">
-          <ConcentricCircles size={80} className="text-cyan-400" />
+        <div className="absolute -left-phi-4 top-0 pointer-events-none">
+          <ConcentricCircles size={100} className="text-cyan-400" />
         </div>
 
-        <div className="bg-gray-900/30 border border-white/5 rounded-2xl p-6 pl-8">
-          <h2 className="text-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2 mb-4">
-            <Shield size={16} /> Digital Sovereign Philosophy
+        <div className="bg-gray-900/40 border border-white/[0.08] rounded-phi-xl p-phi-5 pl-phi-6 shadow-phi-md hover:shadow-phi-lg transition-shadow duration-300">
+          <h2 className="text-phi-sm font-bold text-purple-400 uppercase tracking-wider flex items-center gap-phi-3 mb-phi-4">
+            <Shield size={18} /> Digital Sovereign Philosophy
           </h2>
 
-          <div className="space-y-4 text-sm text-slate-400 leading-relaxed">
+          <div className="space-y-phi-4 text-phi-sm text-slate-400 leading-relaxed">
             <p>
               <span className="text-slate-200 font-medium">You own your tools. You own your data. You own your voice.</span>{' '}
               Sovereign Studio is built on the principle that creative technology should serve the creator — not
@@ -194,7 +194,7 @@ export default function CreditsTab() {
               and any external APIs use keys you control.
             </p>
             <p>
-              <span className="text-cyan-400/80">(A+I)</span> isn't about artificial intelligence replacing human creativity.
+              <span className="text-cyan-400/90">(A+I)</span> isn't about artificial intelligence replacing human creativity.
               It's about <span className="text-slate-200 font-medium">amplifying</span> it. When the human author (A) and the
               intelligent tool (I) work together, the result isn't just A + I — it's (A+I)², where collaboration itself
               creates something neither could alone.
