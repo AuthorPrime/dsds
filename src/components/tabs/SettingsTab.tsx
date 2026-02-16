@@ -19,7 +19,7 @@ import {
   loadCompanions,
   checkProviderAvailability,
 } from '../../utils/aiProviders';
-import { isOllamaAvailable, listModels as listOllamaModels } from '../../services/ollama';
+import { isOllamaAvailable, listModels as listOllamaModels, getActiveBackend } from '../../services/ollama';
 
 // --- Settings shape ---
 interface Settings {
@@ -132,6 +132,7 @@ export function SettingsTab() {
   // Availability checks
   const [ollamaStatus, setOllamaStatus] = useState<boolean | null>(null);
   const [whisperStatus, setWhisperStatus] = useState<boolean | null>(null);
+  const [activeBackend, setActiveBackend] = useState<string | null>(null);
 
   // Load everything on mount
   useEffect(() => {
@@ -147,9 +148,10 @@ export function SettingsTab() {
       setSttProviders(stt);
       setCompanions(comps);
 
-      // Check Ollama
+      // Check AI backends (Ollama or bundled LLM)
       const ollamaOk = await isOllamaAvailable();
       setOllamaStatus(ollamaOk);
+      setActiveBackend(getActiveBackend());
       if (ollamaOk) {
         const models = await listOllamaModels();
         setOllamaLiveModels(models);
@@ -206,7 +208,7 @@ export function SettingsTab() {
 
         {/* Status Bar */}
         <div className="flex flex-wrap gap-4 p-3 bg-white/5 rounded-lg border border-white/10">
-          <StatusDot available={ollamaStatus} label="Ollama" />
+          <StatusDot available={ollamaStatus} label={activeBackend === 'llamacpp' ? 'Bundled AI' : 'AI Model'} />
           <StatusDot available={whisperStatus} label="Whisper.cpp" />
           <span className="flex items-center gap-1.5 text-xs text-emerald-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -261,7 +263,7 @@ export function SettingsTab() {
               ) : (
                 <p className="text-sm text-slate-500 italic">
                   {settings.llmProvider === 'ollama' && !ollamaStatus
-                    ? 'Start Ollama to see available models'
+                    ? 'Enable bundled AI or start Ollama to see models'
                     : settings.llmProvider === 'lmstudio'
                       ? 'Load a model in LM Studio to detect it'
                       : 'No models available'}
@@ -272,10 +274,12 @@ export function SettingsTab() {
             {/* Show status for local providers */}
             {currentLLM?.type === 'local' && settings.llmProvider === 'ollama' && (
               <div className="flex items-center gap-2 text-sm">
-                {ollamaStatus ? (
+                {ollamaStatus && activeBackend === 'llamacpp' ? (
+                  <span className="text-emerald-400 flex items-center gap-1"><Check size={14} /> Bundled AI model active</span>
+                ) : ollamaStatus ? (
                   <span className="text-emerald-400 flex items-center gap-1"><Check size={14} /> Connected - {ollamaLiveModels.length} model(s) loaded</span>
                 ) : (
-                  <span className="text-amber-400 flex items-center gap-1"><AlertCircle size={14} /> Ollama not running. Start with: ollama serve</span>
+                  <span className="text-amber-400 flex items-center gap-1"><AlertCircle size={14} /> No AI model running. Enable bundled AI in setup, or install Ollama.</span>
                 )}
               </div>
             )}

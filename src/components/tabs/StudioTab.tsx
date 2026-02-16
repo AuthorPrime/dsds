@@ -12,6 +12,7 @@ import { getSettings, incrementStat } from '../../hooks/useSettings';
 import { loadCompanion } from '../../utils/aiProviders';
 import { enumerateAudioDevices } from '../../utils/audioUtils';
 import { speak } from '../../services/tts';
+import { initTTSBridge, getTTSOutputStream } from '../../services/ttsAudioBridge';
 import { eventBus, EVENTS } from '../../services/eventBus';
 import AudioVisualizer from '../AudioVisualizer';
 import { ConnectionState } from '../../types';
@@ -163,7 +164,10 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
   const providerError = isOllamaMode ? ollamaError : geminiError;
   const isAIConnected = connectionState === ConnectionState.CONNECTED;
 
-  const { isRecording, formattedTime, startRecording, stopRecording } = useRecording({ canvasRef, aiAudioStream: isOllamaMode ? null : aiAudioStream });
+  // In Gemini mode, AI audio comes from the Gemini Live AudioContext.
+  // In Ollama mode, AI audio comes from the TTS bridge (Piper/Coqui/browser).
+  const ttsStream = isOllamaMode ? (initTTSBridge(), getTTSOutputStream()) : null;
+  const { isRecording, formattedTime, startRecording, stopRecording } = useRecording({ canvasRef, aiAudioStream: isOllamaMode ? ttsStream : aiAudioStream });
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, currentResponse]);
 

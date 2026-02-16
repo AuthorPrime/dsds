@@ -20,6 +20,7 @@ import { speak, stopSpeaking, isSpeaking as checkSpeaking } from '../../services
 import { saveFile, saveBlob } from '../../services/fileManager';
 import { renderMarkdown } from '../../utils/markdown';
 import { eventBus, EVENTS } from '../../services/eventBus';
+import { extractTextFromPdf } from '../../utils/pdfExtract';
 
 // ─── Types ──────────────────────────────────────────────────────────
 type SubTab = 'view' | 'write' | 'transcribe';
@@ -261,7 +262,12 @@ export function WorkshopTab() {
       // Documents
       if (ext === 'pdf') {
         const objectUrl = URL.createObjectURL(file);
+        // Add immediately with empty content for quick preview
         setFiles(prev => [...prev, { id, name, kind: 'document', docType: 'pdf', content: '', objectUrl }]);
+        // Extract text in background (enables Edit button, TTS, and copy)
+        extractTextFromPdf(file).then(text => {
+          setFiles(prev => prev.map(f => f.id === id ? { ...f, content: text } : f));
+        }).catch(err => console.warn('PDF text extraction failed:', err));
       } else if (ext === 'md') {
         const text = await file.text();
         setFiles(prev => [...prev, { id, name, kind: 'document', docType: 'md', content: text }]);
@@ -386,7 +392,7 @@ export function WorkshopTab() {
   async function exportHTML() {
     const content = doc.enhanced || doc.content;
     const brand = getUserBranding();
-    let html = content.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/^- (.+)$/gm, '<li>$1</li>').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+    const html = content.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/^- (.+)$/gm, '<li>$1</li>').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${doc.title || 'Untitled'}</title><style>body{font-family:Georgia,serif;max-width:800px;margin:40px auto;padding:0 20px;color:#1a1a2e;line-height:1.8}h1{font-size:2.2em;border-bottom:3px solid #8B5CF6;padding-bottom:12px}h2{font-size:1.6em;color:#4C1D95;margin-top:2em}h3{font-size:1.3em;color:#6D28D9}.header{text-align:center;margin-bottom:3em}.header .org{color:#8B5CF6;font-size:.9em;letter-spacing:2px;text-transform:uppercase}.header .author{color:#666;font-style:italic}.footer{margin-top:4em;padding-top:2em;border-top:1px solid #ddd;text-align:center;color:#888;font-size:.85em}</style></head><body><div class="header">${brand.organizationName ? `<div class="org">${brand.organizationName}</div>` : ''}<h1>${doc.title || 'Untitled'}</h1>${brand.hostName ? `<div class="author">By ${brand.hostName}</div>` : ''}</div><p>${html}</p><div class="footer"><p>Sovereign Studio</p></div></body></html>`;
     const filename = `${(doc.title || 'untitled').toLowerCase().replace(/\s+/g, '-')}.html`;
     await saveFile('publications', filename, fullHtml);
@@ -529,14 +535,14 @@ export function WorkshopTab() {
                   </div>
                 )}
                 <div className="flex items-center gap-1.5">
-                  {selectedFile.docType !== 'pdf' && (
+                  {(selectedFile.content || selectedFile.transcript) && (
                     <button onClick={() => { navigator.clipboard.writeText(selectedFile.content || selectedFile.transcript || '').catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
                       className="px-2.5 py-1 bg-gray-700/60 hover:bg-gray-600/60 rounded text-xs flex items-center gap-1.5">
                       {copied ? <><Check size={12} className="text-emerald-400" /> Copied</> : <><Copy size={12} /> Copy</>}
                     </button>
                   )}
-                  {/* Edit button — only for files with text content (not PDFs) */}
-                  {selectedFile.docType !== 'pdf' && (
+                  {/* Edit button — available for any file with extracted text */}
+                  {(selectedFile.content || selectedFile.transcript) && (
                     <button onClick={() => openInEditor(selectedFile)} className="px-2.5 py-1 bg-purple-700/60 hover:bg-purple-600/60 rounded text-xs flex items-center gap-1.5"><PenTool size={12} /> Edit</button>
                   )}
                   <button onClick={async () => {

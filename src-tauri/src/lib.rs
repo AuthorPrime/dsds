@@ -1,19 +1,151 @@
+use std::io::Write;
+use std::sync::Mutex;
+use tauri::Manager;
+
+// Global state for managed LLM server process
+struct LlmServerState(Mutex<Option<std::process::Child>>);
+
+/// Invoke Piper TTS — takes text, returns WAV audio bytes.
+/// Piper binary and model must exist at the specified paths.
+#[tauri::command]
+async fn speak_piper(text: String, piper_path: String, model_path: String) -> Result<Vec<u8>, String> {
+    let mut child = std::process::Command::new(&piper_path)
+        .args(["--model", &model_path, "--output_file", "-"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start Piper: {}", e))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(text.as_bytes())
+            .map_err(|e| format!("Failed to write to Piper stdin: {}", e))?;
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Piper process error: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Piper TTS failed: {}", stderr));
+    }
+
+    Ok(output.stdout)
+}
+
+/// Check if Piper binary exists at the given path
+#[tauri::command]
+async fn check_piper_installed(piper_path: String) -> bool {
+    std::path::Path::new(&piper_path).exists()
+}
+
+/// Get the app's data directory path (for storing Piper binaries and models)
+#[tauri::command]
+async fn get_app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
+    app.path()
+        .app_data_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| format!("Could not resolve app data dir: {}", e))
+}
+
+/// Start the bundled llama-server process.
+/// The server runs on the specified port with the given model.
+#[tauri::command]
+async fn start_llm_server(
+    server_path: String,
+    model_path: String,
+    port: u16,
+    state: tauri::State<'_, LlmServerState>,
+) -> Result<String, String> {
+    let mut lock = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    // Stop existing server if running
+    if let Some(ref mut child) = *lock {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    let child = std::process::Command::new(&server_path)
+        .args([
+            "--model", &model_path,
+            "--port", &port.to_string(),
+            "--host", "127.0.0.1",
+            "--ctx-size", "4096",
+            "--n-gpu-layers", "0",  // CPU only for maximum compatibility
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start LLM server: {}", e))?;
+
+    let pid = child.id();
+    *lock = Some(child);
+
+    Ok(format!("LLM server started on port {} (PID: {})", port, pid))
+}
+
+/// Stop the bundled llama-server process
+#[tauri::command]
+async fn stop_llm_server(state: tauri::State<'_, LlmServerState>) -> Result<String, String> {
+    let mut lock = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    if let Some(ref mut child) = *lock {
+        child.kill().map_err(|e| format!("Failed to kill server: {}", e))?;
+        child.wait().map_err(|e| format!("Failed to wait: {}", e))?;
+        *lock = None;
+        Ok("LLM server stopped".to_string())
+    } else {
+        Ok("No server running".to_string())
+    }
+}
+
+/// Check if the LLM server process is running
+#[tauri::command]
+async fn is_llm_server_running(state: tauri::State<'_, LlmServerState>) -> Result<bool, String> {
+    let mut lock = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+
+    if let Some(ref mut child) = *lock {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                // Process has exited
+                *lock = None;
+                Ok(false)
+            }
+            Ok(None) => Ok(true),   // Still running
+            Err(_) => Ok(false),
+        }
+    } else {
+        Ok(false)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
-    .plugin(tauri_plugin_fs::init())
-    .plugin(tauri_plugin_shell::init())
-    .plugin(tauri_plugin_dialog::init())
-    .setup(|app| {
-      if cfg!(debug_assertions) {
-        app.handle().plugin(
-          tauri_plugin_log::Builder::default()
-            .level(log::LevelFilter::Info)
-            .build(),
-        )?;
-      }
-      Ok(())
-    })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .manage(LlmServerState(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![
+            speak_piper,
+            check_piper_installed,
+            get_app_data_dir,
+            start_llm_server,
+            stop_llm_server,
+            is_llm_server_running,
+        ])
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }

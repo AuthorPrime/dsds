@@ -42,7 +42,7 @@ export function useOllamaChat({ model, systemPrompt, onResponseComplete }: UseOl
 
     const available = await isOllamaAvailable();
     if (!available) {
-      setError('Ollama is not running. Start with: ollama serve');
+      setError('No AI model available. Enable a bundled model in Settings, or install Ollama.');
       setConnectionState(ConnectionState.ERROR);
       return;
     }

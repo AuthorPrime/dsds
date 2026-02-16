@@ -1,23 +1,22 @@
 /**
  * TTS Service - Multi-provider text-to-speech
  *
+ * All TTS audio routes through the TTS Audio Bridge so it can be:
+ *   1. Played to speakers
+ *   2. Captured in recordings (mixed with mic audio)
+ *
  * Supports:
- * - Browser Speech Synthesis API (works everywhere, maps to Edge TTS voices in Edge/Chrome)
+ * - Browser Speech Synthesis API (prefers neural voices in Edge/Chrome)
  * - Coqui TTS (local server at localhost:5002)
  * - Piper TTS (local server at localhost:5000)
  * - Gemini TTS is handled by Gemini Live integration separately
  */
 
 import { getSettings } from '../hooks/useSettings';
+import { playTTSBlob, speakWithCapture, stopTTSPlayback, isTTSPlaying } from './ttsAudioBridge';
+import { speakWithPiper } from './piperService';
 
 export type TTSProviderType = 'edge_tts' | 'gemini' | 'coqui' | 'piper';
-
-// Browser Speech Synthesis voices that map to Edge TTS neural voices
-const EDGE_VOICE_MAP: Record<string, string> = {
-  'en-US-AriaNeural': 'Aria',
-  'en-US-GuyNeural': 'Guy',
-  'en-GB-SoniaNeural': 'Sonia',
-};
 
 /**
  * Speak text using the configured TTS provider
@@ -45,79 +44,93 @@ export async function speak(text: string, voiceId?: string): Promise<void> {
  * Stop any currently playing speech
  */
 export function stopSpeaking(): void {
-  window.speechSynthesis.cancel();
+  stopTTSPlayback();
 }
 
 /**
  * Check if speech is currently playing
  */
 export function isSpeaking(): boolean {
-  return window.speechSynthesis.speaking;
+  return isTTSPlaying();
 }
 
 /**
- * Get available browser voices
+ * Get available browser voices, sorted by quality (neural/natural first)
  */
 export function getBrowserVoices(): SpeechSynthesisVoice[] {
-  return window.speechSynthesis.getVoices();
+  const voices = window.speechSynthesis.getVoices();
+  return sortVoicesByQuality(voices);
+}
+
+// Keywords indicating a high-quality neural/natural voice
+const NEURAL_KEYWORDS = ['neural', 'natural', 'online', 'premium', 'enhanced'];
+
+/**
+ * Score a voice by quality — higher is better
+ */
+function voiceQualityScore(voice: SpeechSynthesisVoice): number {
+  const name = voice.name.toLowerCase();
+  let score = 0;
+
+  // Neural/natural voices get top priority
+  if (NEURAL_KEYWORDS.some(kw => name.includes(kw))) score += 100;
+
+  // Microsoft and Google voices tend to be higher quality in Tauri/WebView
+  if (name.includes('microsoft') || name.includes('google')) score += 50;
+
+  // Edge TTS voices (Neural suffix) are excellent
+  if (name.includes('neural')) score += 30;
+
+  // English voices preferred (but don't exclude others)
+  if (voice.lang.startsWith('en')) score += 10;
+
+  // Local voices are lower quality than remote/online
+  if (voice.localService) score -= 20;
+
+  return score;
 }
 
 /**
- * Browser Speech Synthesis - works in all modern browsers
- * In Edge/Chrome, this gives access to neural voices that match Edge TTS quality
+ * Sort voices by quality score (best first)
+ */
+function sortVoicesByQuality(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] {
+  return [...voices].sort((a, b) => voiceQualityScore(b) - voiceQualityScore(a));
+}
+
+/**
+ * Find the best matching voice, preferring neural/natural voices
+ */
+function findBestVoice(voiceId: string): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) return null;
+
+  // Exact match by name
+  let voice = voices.find(v => v.name === voiceId);
+  if (voice) return voice;
+
+  // Partial match on the voice ID
+  voice = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
+  if (voice) return voice;
+
+  // Find best English neural voice as fallback
+  const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+  const sorted = sortVoicesByQuality(englishVoices);
+  if (sorted.length > 0) return sorted[0];
+
+  // Last resort: any voice
+  return voices[0] || null;
+}
+
+/**
+ * Browser Speech Synthesis - prefers neural voices in Edge/Chrome
  */
 function speakBrowser(text: string, voiceId: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    stopSpeaking();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-
-    // Try to find the matching voice
-    const voices = window.speechSynthesis.getVoices();
-
-    // First try exact match by voice ID
-    let voice = voices.find(v => v.name === voiceId);
-
-    // Then try Edge TTS name mapping
-    if (!voice) {
-      const mappedName = EDGE_VOICE_MAP[voiceId];
-      if (mappedName) {
-        voice = voices.find(v => v.name.includes(mappedName));
-      }
-    }
-
-    // Then try partial match on the voice ID
-    if (!voice) {
-      voice = voices.find(v => v.name.toLowerCase().includes(voiceId.toLowerCase()));
-    }
-
-    // Fallback to first English voice
-    if (!voice) {
-      voice = voices.find(v => v.lang.startsWith('en'));
-    }
-
-    if (voice) {
-      utterance.voice = voice;
-    }
-
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-
-    utterance.onend = () => resolve();
-    utterance.onerror = (event) => {
-      if (event.error === 'canceled') {
-        resolve();
-      } else {
-        reject(new Error(`Speech synthesis error: ${event.error}`));
-      }
-    };
-
-    window.speechSynthesis.speak(utterance);
-  });
+  const voice = findBestVoice(voiceId);
+  return speakWithCapture(text, voice);
 }
 
 /**
- * Coqui TTS - local server
+ * Coqui TTS - local server (audio routed through bridge for capture)
  */
 async function speakCoqui(text: string, voiceId: string): Promise<void> {
   const endpoint = 'http://localhost:5002';
@@ -135,48 +148,37 @@ async function speakCoqui(text: string, voiceId: string): Promise<void> {
   if (!res.ok) throw new Error(`Coqui TTS error: ${res.status}`);
 
   const audioBlob = await res.blob();
-  await playAudioBlob(audioBlob);
+  await playTTSBlob(audioBlob);
 }
 
 /**
- * Piper TTS - local server
+ * Piper TTS — tries bundled binary first, falls back to HTTP server, then browser
  */
 async function speakPiper(text: string, voiceId: string): Promise<void> {
-  const endpoint = 'http://localhost:5000';
+  // Try bundled Piper binary (via Tauri command)
+  const usedBundled = await speakWithPiper(text, voiceId);
+  if (usedBundled) return;
 
-  const res = await fetch(`${endpoint}/api/tts`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text,
-      voice: voiceId,
-    }),
-    signal: AbortSignal.timeout(30000),
-  });
+  // Fall back to Piper HTTP server (if user has it running externally)
+  try {
+    const endpoint = 'http://localhost:5000';
+    const res = await fetch(`${endpoint}/api/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: voiceId }),
+      signal: AbortSignal.timeout(5000),
+    });
 
-  if (!res.ok) throw new Error(`Piper TTS error: ${res.status}`);
+    if (res.ok) {
+      const audioBlob = await res.blob();
+      await playTTSBlob(audioBlob);
+      return;
+    }
+  } catch {
+    // Server not running — fall through to browser TTS
+  }
 
-  const audioBlob = await res.blob();
-  await playAudioBlob(audioBlob);
-}
-
-/**
- * Play an audio blob through the speakers
- */
-function playAudioBlob(blob: Blob): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      resolve();
-    };
-    audio.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Failed to play audio'));
-    };
-
-    audio.play().catch(reject);
-  });
+  // Final fallback: browser TTS with best available voice
+  console.warn('Piper TTS unavailable, falling back to browser voice');
+  return speakBrowser(text, voiceId);
 }

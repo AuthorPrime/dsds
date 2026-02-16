@@ -1,11 +1,24 @@
 /**
  * Ollama Integration Service
- * Local AI inference for content generation, editing, and publishing
+ * Local AI inference for content generation, editing, and publishing.
+ *
+ * Transparently supports two backends:
+ *   - Ollama (NDJSON streaming via /api/chat)
+ *   - Bundled llama-server (OpenAI SSE streaming via /v1/chat/completions)
+ *
+ * The active backend is auto-detected on first connection. All downstream
+ * code (useOllamaChat, high-level generators) works without changes.
  */
 
 import { getUserBranding } from '../branding';
 
 const OLLAMA_ENDPOINT = 'http://localhost:11434';
+const LLAMACPP_ENDPOINT = 'http://127.0.0.1:11435';
+
+type BackendType = 'ollama' | 'llamacpp';
+
+let detectedBackend: BackendType | null = null;
+let detectedEndpoint: string | null = null;
 
 export interface OllamaMessage {
   role: 'system' | 'user' | 'assistant';
@@ -24,35 +37,75 @@ export interface OllamaStreamChunk {
   done: boolean;
 }
 
-async function getEndpoint(): Promise<string> {
-  // Try network Ollama first (lattice), fall back to localhost
-  const endpoints = [
+/** Reset cached detection (call when user changes settings or starts/stops servers) */
+export function resetBackendDetection(): void {
+  detectedBackend = null;
+  detectedEndpoint = null;
+}
+
+/** Returns the active backend type, or null if none detected yet */
+export function getActiveBackend(): BackendType | null {
+  return detectedBackend;
+}
+
+async function detectBackend(): Promise<{ endpoint: string; backend: BackendType } | null> {
+  // 1. Try Ollama endpoints (returns "Ollama is running" on GET /)
+  const ollamaEndpoints = [
     OLLAMA_ENDPOINT,
     'http://192.168.1.237:11434',
   ];
-
-  for (const ep of endpoints) {
+  for (const ep of ollamaEndpoints) {
     try {
       const res = await fetch(ep, { signal: AbortSignal.timeout(2000) });
-      if (res.ok) return ep;
+      if (res.ok) return { endpoint: ep, backend: 'ollama' };
     } catch { /* try next */ }
   }
+
+  // 2. Try bundled llama-server (OpenAI-compatible, responds on /health or /v1/models)
+  try {
+    const res = await fetch(`${LLAMACPP_ENDPOINT}/health`, { signal: AbortSignal.timeout(2000) });
+    if (res.ok) return { endpoint: LLAMACPP_ENDPOINT, backend: 'llamacpp' };
+  } catch { /* not running */ }
+
+  return null;
+}
+
+async function getEndpoint(): Promise<string> {
+  if (detectedEndpoint && detectedBackend) return detectedEndpoint;
+
+  const result = await detectBackend();
+  if (result) {
+    detectedEndpoint = result.endpoint;
+    detectedBackend = result.backend;
+    return result.endpoint;
+  }
+
   return OLLAMA_ENDPOINT;
 }
 
 export async function isOllamaAvailable(): Promise<boolean> {
-  try {
-    const ep = await getEndpoint();
-    const res = await fetch(ep, { signal: AbortSignal.timeout(3000) });
-    return res.ok;
-  } catch {
-    return false;
+  const result = await detectBackend();
+  if (result) {
+    detectedEndpoint = result.endpoint;
+    detectedBackend = result.backend;
+    return true;
   }
+  detectedBackend = null;
+  detectedEndpoint = null;
+  return false;
 }
 
 export async function listModels(): Promise<string[]> {
   try {
     const ep = await getEndpoint();
+    if (detectedBackend === 'llamacpp') {
+      // llama-server /v1/models returns whatever model is loaded
+      const res = await fetch(`${ep}/v1/models`, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) return ['bundled-model'];
+      const data = await res.json();
+      return data.data?.map((m: { id: string }) => m.id) ?? ['bundled-model'];
+    }
+    // Ollama
     const res = await fetch(`${ep}/api/tags`);
     const data = await res.json();
     return data.models?.map((m: { name: string }) => m.name) ?? [];
@@ -67,6 +120,26 @@ export async function chat(
   options?: { temperature?: number; maxTokens?: number }
 ): Promise<string> {
   const ep = await getEndpoint();
+
+  if (detectedBackend === 'llamacpp') {
+    // OpenAI format (non-streaming)
+    const res = await fetch(`${ep}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(120000),
+      body: JSON.stringify({
+        messages,
+        temperature: options?.temperature ?? 0.7,
+        max_tokens: options?.maxTokens ?? 2048,
+        stream: false,
+      }),
+    });
+    if (!res.ok) throw new Error(`LLM server error: ${res.status}`);
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content ?? '';
+  }
+
+  // Ollama format (non-streaming)
   const res = await fetch(`${ep}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -92,6 +165,14 @@ export async function* chatStream(
   messages: OllamaMessage[]
 ): AsyncGenerator<string> {
   const ep = await getEndpoint();
+
+  if (detectedBackend === 'llamacpp') {
+    // OpenAI SSE streaming format
+    yield* chatStreamOpenAI(ep, messages);
+    return;
+  }
+
+  // Ollama NDJSON streaming format
   const res = await fetch(`${ep}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -112,6 +193,45 @@ export async function* chatStream(
       try {
         const chunk: OllamaStreamChunk = JSON.parse(line);
         yield chunk.message.content;
+      } catch { /* skip malformed */ }
+    }
+  }
+}
+
+/** OpenAI-compatible SSE streaming (used by bundled llama-server) */
+async function* chatStreamOpenAI(
+  endpoint: string,
+  messages: OllamaMessage[]
+): AsyncGenerator<string> {
+  const res = await fetch(`${endpoint}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages,
+      temperature: 0.7,
+      max_tokens: 2048,
+      stream: true,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`LLM server error: ${res.status}`);
+
+  const reader = res.body?.getReader();
+  if (!reader) return;
+
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const text = decoder.decode(value);
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === 'data: [DONE]') continue;
+      if (!trimmed.startsWith('data: ')) continue;
+      try {
+        const json = JSON.parse(trimmed.slice(6));
+        const content = json.choices?.[0]?.delta?.content;
+        if (content) yield content;
       } catch { /* skip malformed */ }
     }
   }

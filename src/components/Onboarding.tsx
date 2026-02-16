@@ -12,16 +12,17 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Sparkles, ArrowRight, ArrowLeft, Check, Mic,
   BookOpen, Cpu, Radio, PenTool, Download,
-  AlertCircle, Loader2, User, Globe,
+  Loader2, User, Globe, Volume2,
 } from 'lucide-react';
 import { APP_BRAND } from '../branding';
 import { getSettings, DEFAULTS } from '../hooks/useSettings';
 import type { AppSettings } from '../hooks/useSettings';
 import { isOllamaAvailable, listModels } from '../services/ollama';
+import { speak, stopSpeaking, getBrowserVoices } from '../services/tts';
 
 // ─── Types ──────────────────────────────────────────────────────────
-type Step = 'welcome' | 'brand' | 'ai' | 'ready';
-const STEPS: Step[] = ['welcome', 'brand', 'ai', 'ready'];
+type Step = 'welcome' | 'brand' | 'voice' | 'ai' | 'ready';
+const STEPS: Step[] = ['welcome', 'brand', 'voice', 'ai', 'ready'];
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -98,6 +99,11 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [hostName, setHostName] = useState('');
   const [organizationName, setOrganizationName] = useState('');
 
+  // Voice selection
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState('');
+  const [previewPlaying, setPreviewPlaying] = useState<string | null>(null);
+
   // AI check
   const [checking, setChecking] = useState(false);
   const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
@@ -120,6 +126,34 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
   const prev = () => {
     if (stepIndex > 0) goToStep(STEPS[stepIndex - 1]);
+  };
+
+  // Load voices when we reach the voice step
+  useEffect(() => {
+    if (step === 'voice') {
+      const loadVoices = () => {
+        const available = getBrowserVoices();
+        if (available.length > 0) {
+          setVoices(available);
+          if (!selectedVoice && available.length > 0) {
+            setSelectedVoice(available[0].name);
+          }
+        }
+      };
+      loadVoices();
+      // Voices may load asynchronously
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+      return () => { window.speechSynthesis.onvoiceschanged = null; };
+    }
+  }, [step, selectedVoice]);
+
+  const previewVoice = (voiceName: string) => {
+    stopSpeaking();
+    setPreviewPlaying(voiceName);
+    const sampleText = podcastName.trim()
+      ? `Welcome to ${podcastName}. I'm your AI co-host, and I'm excited to create with you today.`
+      : `Welcome to your new podcast. I'm your AI co-host, and I'm excited to create with you today.`;
+    speak(sampleText, voiceName).then(() => setPreviewPlaying(null)).catch(() => setPreviewPlaying(null));
   };
 
   // Check Ollama when we reach the AI step
@@ -146,6 +180,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       podcastName: podcastName.trim() || DEFAULTS.podcastName,
       hostName: hostName.trim() || DEFAULTS.hostName,
       organizationName: organizationName.trim(),
+      ttsVoice: selectedVoice || current.ttsVoice,
       hasCompletedOnboarding: true,
     };
     localStorage.setItem('dsds-settings', JSON.stringify(updated));
@@ -294,97 +329,161 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             </div>
           )}
 
-          {/* ─── STEP 3: AI CHECK ─── */}
+          {/* ─── STEP 3: VOICE ─── */}
+          {step === 'voice' && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
+                  <Volume2 size={24} className="text-violet-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-white">Choose Your AI Voice</h2>
+                <p className="text-slate-500 text-sm mt-1">
+                  Pick how your AI co-host sounds. Tap any voice to preview it.
+                </p>
+              </div>
+
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {voices.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Loader2 size={20} className="text-slate-500 animate-spin mx-auto mb-2" />
+                    <p className="text-xs text-slate-500">Loading available voices...</p>
+                  </div>
+                ) : (
+                  voices.filter(v => v.lang.startsWith('en')).slice(0, 12).map((voice) => (
+                    <button
+                      key={voice.name}
+                      onClick={() => {
+                        setSelectedVoice(voice.name);
+                        previewVoice(voice.name);
+                      }}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
+                        selectedVoice === voice.name
+                          ? 'bg-purple-900/30 border border-purple-500/40 shadow-md shadow-purple-500/10'
+                          : 'bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12]'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        selectedVoice === voice.name ? 'bg-purple-500/20' : 'bg-white/[0.04]'
+                      }`}>
+                        {previewPlaying === voice.name ? (
+                          <Loader2 size={14} className="text-purple-400 animate-spin" />
+                        ) : selectedVoice === voice.name ? (
+                          <Check size={14} className="text-purple-400" />
+                        ) : (
+                          <Volume2 size={14} className="text-slate-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-200 truncate">{voice.name}</p>
+                        <p className="text-[11px] text-slate-500">{voice.lang}</p>
+                      </div>
+                      {!voice.localService && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">HD</span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              <p className="text-xs text-slate-600 text-center">
+                You can change this anytime in Settings. More voices available with Piper TTS.
+              </p>
+
+              <div className="flex justify-between pt-2">
+                <button onClick={() => { stopSpeaking(); prev(); }} className="flex items-center gap-2 px-5 py-2.5 border border-white/[0.08] rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
+                  <ArrowLeft size={16} /> Back
+                </button>
+                <button onClick={() => { stopSpeaking(); next(); }}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-xl font-semibold text-white shadow-lg shadow-purple-500/15 hover:scale-[1.02] transition-all">
+                  Continue <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ─── STEP 4: AI CHECK ─── */}
           {step === 'ai' && (
             <div className="space-y-6">
               <div className="text-center">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
                   <Cpu size={24} className="text-emerald-400" />
                 </div>
-                <h2 className="text-2xl font-bold text-white">AI Engine Check</h2>
+                <h2 className="text-2xl font-bold text-white">Connect Your AI</h2>
                 <p className="text-slate-500 text-sm mt-1">
-                  Sovereign Studio uses local AI through Ollama. Let's check your setup.
+                  Choose how your AI assistant connects. You can change this anytime.
                 </p>
               </div>
 
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 space-y-4">
-                {checking ? (
-                  <div className="flex items-center gap-3 justify-center py-4">
-                    <Loader2 size={20} className="text-cyan-400 animate-spin" />
-                    <span className="text-slate-300 text-sm">Checking for Ollama...</span>
+              {/* Option 1: Gemini (Easy) */}
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
+                    <Globe size={18} className="text-cyan-400" />
                   </div>
-                ) : ollamaOk ? (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center">
-                        <Check size={18} className="text-emerald-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-emerald-300">Ollama is running</p>
-                        <p className="text-xs text-slate-500">{ollamaModels.length} model{ollamaModels.length !== 1 ? 's' : ''} available</p>
-                      </div>
-                    </div>
-                    {ollamaModels.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {ollamaModels.slice(0, 8).map(m => (
-                          <span key={m} className="px-2.5 py-1 bg-white/[0.04] border border-white/[0.06] rounded-lg text-[11px] text-slate-300 font-mono">{m}</span>
-                        ))}
-                        {ollamaModels.length > 8 && <span className="px-2.5 py-1 text-[11px] text-slate-500">+{ollamaModels.length - 8} more</span>}
-                      </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-cyan-300">Gemini AI</p>
+                    <p className="text-xs text-slate-500">Free tier available. Best for voice conversations.</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Recommended</span>
+                </div>
+                <p className="text-xs text-slate-400 pl-[52px]">
+                  Get a free API key at <span className="text-cyan-400 font-medium">aistudio.google.com</span> — paste it in Settings after setup.
+                </p>
+              </div>
+
+              {/* Option 2: Ollama (Advanced) */}
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    ollamaOk ? 'bg-emerald-500/15 border border-emerald-500/25' : 'bg-white/[0.04] border border-white/[0.08]'
+                  }`}>
+                    {checking ? (
+                      <Loader2 size={18} className="text-slate-400 animate-spin" />
+                    ) : ollamaOk ? (
+                      <Check size={18} className="text-emerald-400" />
+                    ) : (
+                      <Cpu size={18} className="text-slate-400" />
                     )}
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
-                        <AlertCircle size={18} className="text-amber-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-amber-300">Ollama not detected</p>
-                        <p className="text-xs text-slate-500">AI features need Ollama running locally</p>
-                      </div>
-                    </div>
-                    <div className="bg-black/30 rounded-lg p-3 space-y-2">
-                      <p className="text-xs text-slate-400">Quick setup:</p>
-                      <div className="space-y-1.5">
-                        <p className="text-xs text-slate-300 flex items-start gap-2">
-                          <span className="text-purple-400 font-bold mt-px">1.</span>
-                          Download from <span className="text-cyan-400 font-mono">ollama.com</span>
-                        </p>
-                        <p className="text-xs text-slate-300 flex items-start gap-2">
-                          <span className="text-purple-400 font-bold mt-px">2.</span>
-                          Run: <code className="bg-white/[0.08] px-1.5 py-0.5 rounded text-[11px] font-mono text-cyan-300">ollama serve</code>
-                        </p>
-                        <p className="text-xs text-slate-300 flex items-start gap-2">
-                          <span className="text-purple-400 font-bold mt-px">3.</span>
-                          Pull a model: <code className="bg-white/[0.08] px-1.5 py-0.5 rounded text-[11px] font-mono text-cyan-300">ollama pull llama3.2</code>
-                        </p>
-                      </div>
-                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${ollamaOk ? 'text-emerald-300' : 'text-slate-300'}`}>
+                      Ollama (Local AI) {ollamaOk ? `— ${ollamaModels.length} model${ollamaModels.length !== 1 ? 's' : ''} ready` : ''}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {ollamaOk ? 'Running on your machine. 100% private.' : 'Runs entirely on your computer. No internet needed.'}
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-white/[0.04] text-slate-400 border border-white/[0.08]">Advanced</span>
+                </div>
+                {!ollamaOk && !checking && (
+                  <div className="pl-[52px] space-y-2">
+                    <p className="text-xs text-slate-500">
+                      Download from <span className="text-cyan-400 font-medium">ollama.com</span> and it will auto-detect.
+                    </p>
                     <button onClick={async () => {
                       setChecking(true);
                       const ok = await isOllamaAvailable();
                       setOllamaOk(ok);
                       if (ok) setOllamaModels(await listModels());
                       setChecking(false);
-                    }} className="flex items-center gap-2 px-4 py-2 border border-white/[0.08] rounded-lg text-xs text-slate-300 hover:bg-white/[0.04] transition-colors">
-                      <Loader2 size={12} /> Check Again
+                    }} className="flex items-center gap-2 px-3 py-1.5 border border-white/[0.08] rounded-lg text-[11px] text-slate-400 hover:bg-white/[0.04] transition-colors">
+                      <Loader2 size={10} /> Check Again
                     </button>
-                  </>
+                  </div>
+                )}
+                {ollamaOk && ollamaModels.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pl-[52px]">
+                    {ollamaModels.slice(0, 6).map(m => (
+                      <span key={m} className="px-2 py-0.5 bg-white/[0.04] border border-white/[0.06] rounded text-[10px] text-slate-400 font-mono">{m}</span>
+                    ))}
+                    {ollamaModels.length > 6 && <span className="px-2 py-0.5 text-[10px] text-slate-500">+{ollamaModels.length - 6} more</span>}
+                  </div>
                 )}
               </div>
 
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <Globe size={16} className="text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-slate-300 font-medium">Cloud AI also available</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      You can also use Gemini or Claude APIs in Settings. Great for the AI co-host feature when you want real-time voice conversation.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <p className="text-xs text-slate-600 text-center">
+                Don't worry — everything else works without AI. You can set this up later in Settings.
+              </p>
 
               <div className="flex justify-between pt-2">
                 <button onClick={prev} className="flex items-center gap-2 px-5 py-2.5 border border-white/[0.08] rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
@@ -427,10 +526,15 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   <span className="text-sm text-slate-200 font-medium">{hostName.trim() || 'Host'}</span>
                 </div>
                 <div className="flex items-center gap-3">
+                  <Volume2 size={16} className="text-violet-400" />
+                  <span className="text-sm text-slate-300 flex-1">AI Voice</span>
+                  <span className="text-sm text-slate-200 font-medium truncate max-w-[150px]">{selectedVoice || 'Default'}</span>
+                </div>
+                <div className="flex items-center gap-3">
                   <Cpu size={16} className={ollamaOk ? 'text-emerald-400' : 'text-amber-400'} />
-                  <span className="text-sm text-slate-300 flex-1">Local AI</span>
+                  <span className="text-sm text-slate-300 flex-1">AI Engine</span>
                   <span className={`text-sm font-medium ${ollamaOk ? 'text-emerald-300' : 'text-amber-300'}`}>
-                    {ollamaOk ? `${ollamaModels.length} models` : 'Not yet'}
+                    {ollamaOk ? `Ollama (${ollamaModels.length} models)` : 'Set up later'}
                   </span>
                 </div>
               </div>
