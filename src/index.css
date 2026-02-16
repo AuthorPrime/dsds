@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  font-size: 18px;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
+  line-height: 1.6;
   font-weight: 400;
   color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);

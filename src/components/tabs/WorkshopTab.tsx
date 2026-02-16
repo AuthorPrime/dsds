@@ -204,15 +204,18 @@ export function WorkshopTab() {
     });
   }, []);
 
+  const [activeHint, setActiveHint] = useState<string>('');
+
   const applyTemplate = useCallback((template: WriteTemplate) => {
     setDoc({
       title: template.starterTitle,
-      content: template.starterPrompt,
+      content: '',
       type: template.docType,
       style: template.style,
       enhanced: '',
       isProcessing: false,
     });
+    setActiveHint(template.starterPrompt);
     setActiveView('edit');
     setSubTab('write');
   }, []);
@@ -507,11 +510,11 @@ export function WorkshopTab() {
       {/* ── MAIN AREA ── */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Sub-tab bar */}
-        <div className="flex-shrink-0 border-b border-white/[0.06] bg-gray-900/40 px-4 relative z-10">
-          <div className="flex gap-1">
+        <div className="flex-shrink-0 border-b border-white/[0.06] bg-gray-900/40 px-6 relative z-10">
+          <div className="flex gap-2">
             {(['view', 'write', 'transcribe'] as SubTab[]).map(t => (
               <button key={t} onClick={() => setSubTab(t)}
-                className={`px-5 py-2.5 text-[13px] font-medium border-b-2 -mb-[1px] transition-all capitalize ${subTab === t ? 'text-cyan-300 border-cyan-500 bg-cyan-500/[0.06]' : 'text-gray-500 border-transparent hover:text-gray-300 hover:bg-white/[0.03]'}`}
+                className={`px-6 py-3 text-sm font-medium border-b-2 -mb-[1px] transition-all capitalize ${subTab === t ? 'text-cyan-300 border-cyan-500 bg-cyan-500/[0.06]' : 'text-gray-500 border-transparent hover:text-gray-300 hover:bg-white/[0.03]'}`}
               >{t}</button>
             ))}
           </div>
@@ -567,7 +570,7 @@ export function WorkshopTab() {
 
         {/* ── WRITE sub-tab ── */}
         <div className={subTab === 'write' ? 'flex-1 overflow-y-auto' : 'hidden'}>
-          <div className="max-w-4xl mx-auto px-6 py-5 space-y-5">
+          <div className="max-w-4xl mx-auto px-8 py-6 space-y-6">
 
             {/* Content-from-Recording banner */}
             {pendingTranscript && (
@@ -595,8 +598,8 @@ export function WorkshopTab() {
             {/* Header + model */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-purple-400 bg-clip-text text-transparent">Writer</h2>
-                <p className="text-xs text-slate-400 mt-1">AI-enhanced writing and publishing</p>
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-purple-400 bg-clip-text text-transparent">Writer</h2>
+                <p className="text-sm text-slate-400 mt-1">AI-enhanced writing and publishing</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className={`w-1.5 h-1.5 rounded-full ${ollamaReady ? 'bg-emerald-400' : 'bg-red-400'}`} />
@@ -619,8 +622,8 @@ export function WorkshopTab() {
               <div className="space-y-4">
                 <div className="text-center py-2">
                   <Sparkles size={24} className="mx-auto text-amber-400/60 mb-2" />
-                  <h3 className="text-base font-semibold text-slate-200">What would you like to create?</h3>
-                  <p className="text-xs text-slate-500 mt-1">Pick a template to get started, or choose Blank Document</p>
+                  <h3 className="text-lg font-semibold text-slate-200">What would you like to create?</h3>
+                  <p className="text-sm text-slate-500 mt-1">Pick a template to set up formatting, then write or paste your content</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {WRITE_TEMPLATES.map(tmpl => {
@@ -699,6 +702,17 @@ export function WorkshopTab() {
                 <FileImage size={12} className="inline mr-1.5" />Preview{doc.enhanced && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />}
               </button>
             </div>
+
+            {/* Template hint — shows instructions from selected template */}
+            {activeHint && !doc.content.trim() && (
+              <div className="bg-amber-900/10 border border-amber-500/15 rounded-lg px-4 py-3 flex items-start gap-3">
+                <Sparkles size={14} className="text-amber-400/60 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm text-amber-300/80">{activeHint}</p>
+                  <button onClick={() => setActiveHint('')} className="text-[11px] text-slate-500 hover:text-slate-300 mt-1">Dismiss</button>
+                </div>
+              </div>
+            )}
 
             {activeView === 'edit' ? (
               <textarea value={doc.content} onChange={(e) => setDoc(d => ({ ...d, content: e.target.value }))}

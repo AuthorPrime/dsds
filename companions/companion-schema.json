@@ -38,7 +38,7 @@
       "properties": {
         "provider": {
           "type": "string",
-          "enum": ["gemini", "coqui", "edge_tts", "piper"],
+          "enum": ["piper"],
           "description": "TTS provider to use"
         },
         "voiceId": {
@@ -65,7 +65,7 @@
       "properties": {
         "provider": {
           "type": "string",
-          "enum": ["gemini", "anthropic", "ollama", "gpt4all", "lmstudio"],
+          "enum": ["ollama"],
           "description": "LLM provider to use"
         },
         "model": {

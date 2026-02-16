@@ -129,7 +129,7 @@ function LinkCard({ icon, title, description, url, accent }: LinkCardProps) {
 
 export default function CreditsTab() {
   return (
-    <div className="space-y-8 max-w-4xl mx-auto pb-12">
+    <div className="space-y-10 max-w-3xl mx-auto pb-16 px-6">
 
       {/* ─── Hero / Equation ─── */}
       <div className="relative text-center pt-6">

@@ -11,8 +11,8 @@ export interface AppSettings {
   sttProvider: string;
   sttModel: string;
   activeCompanion: string;
-  geminiApiKey: string;
-  anthropicApiKey: string;
+  geminiApiKey: string;   // kept for backward compat with saved settings
+  anthropicApiKey: string; // kept for backward compat with saved settings
   silenceThreshold: number;
   autoTranscribe: boolean;
   localModelPath: string;
@@ -29,15 +29,14 @@ export interface AppSettings {
   totalEnhancements: number;
 }
 
-// Platform-aware default paths
+// Platform detection
 const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
-const homePath = isWindows ? 'C:\\Users\\Author Prime' : '/home/author_prime';
 
 export const DEFAULTS: AppSettings = {
   llmProvider: 'ollama',
   llmModel: 'llama3.2',
-  ttsProvider: 'gemini',
-  ttsVoice: 'Kore',
+  ttsProvider: 'piper',
+  ttsVoice: 'en_US-amy-medium',
   sttProvider: 'web_speech',
   sttModel: '',
   activeCompanion: 'aletheia',
@@ -45,8 +44,8 @@ export const DEFAULTS: AppSettings = {
   anthropicApiKey: '',
   silenceThreshold: 2000,
   autoTranscribe: false,
-  localModelPath: isWindows ? `${homePath}\\.ollama\\models` : `${homePath}/.ollama/models`,
-  outputFolder: isWindows ? `${homePath}\\Desktop\\Sovereign_Studio_Output` : `${homePath}/Desktop/Sovereign_Studio_Output`,
+  localModelPath: isWindows ? 'C:\\Users\\Public\\.ollama\\models' : '~/.ollama/models',
+  outputFolder: isWindows ? 'C:\\Users\\Public\\Documents\\Sovereign_Studio' : '~/Documents/Sovereign_Studio',
   podcastName: 'My Podcast',
   hostName: 'Host',
   organizationName: '',

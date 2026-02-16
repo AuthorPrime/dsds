@@ -4,7 +4,7 @@ export interface Persona {
   name: string;
   role: string;
   description: string;
-  voiceName: 'Puck' | 'Charon' | 'Kore' | 'Fenrir' | 'Zephyr';
+  voiceName: string;
   systemInstruction: string;
 }
 
@@ -17,13 +17,13 @@ export interface CompanionConfig {
   description?: string;
   avatar?: string;
   voice: {
-    provider: 'gemini' | 'coqui' | 'edge_tts' | 'piper';
+    provider: 'piper';
     voiceId: string;
     pitch?: number;
     speed?: number;
   };
   llm: {
-    provider: 'gemini' | 'anthropic' | 'ollama' | 'gpt4all' | 'lmstudio';
+    provider: 'ollama';
     model: string;
     temperature?: number;
     maxTokens?: number;

@@ -2,9 +2,8 @@
  * TTS Audio Bridge — Singleton AudioContext that routes TTS audio to both
  * speakers AND a capturable MediaStream for recording.
  *
- * This solves the gap where Piper/Coqui/browser TTS plays to speakers
- * but isn't captured in recordings (unlike Gemini Live which has its own
- * AudioContext with MediaStreamDestination).
+ * This solves the gap where Piper/browser TTS plays to speakers
+ * but isn't captured in recordings without this bridge.
  *
  * Architecture:
  *   TTS blob → AudioContext.decodeAudioData → AudioBufferSourceNode
@@ -52,7 +51,7 @@ export function initTTSBridge(): MediaStream {
 
 /**
  * Play an audio blob through both speakers and the capture stream.
- * Used by Piper TTS and Coqui TTS.
+ * Used by Piper TTS.
  */
 export async function playTTSBlob(blob: Blob): Promise<void> {
   const ctx = getContext();

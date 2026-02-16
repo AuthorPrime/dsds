@@ -1,7 +1,6 @@
 /**
- * Ollama Chat Hook - Text-based AI chat for Studio tab
- * Provides similar interface to useGeminiLive but uses Ollama for text chat.
- * When the user speaks, their transcribed text is sent to Ollama for a response.
+ * AI Chat Hook - Text-based AI chat for Studio tab
+ * When the user speaks, their transcribed text is sent to the AI for a response.
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';

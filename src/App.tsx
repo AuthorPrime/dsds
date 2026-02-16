@@ -13,9 +13,7 @@ import { getSettings } from './hooks/useSettings';
 import type { StartupResult } from './services/startupManager';
 
 function App() {
-  const apiKey = (import.meta.env as { VITE_GEMINI_API_KEY?: string })?.VITE_GEMINI_API_KEY || '';
-
-  // Startup gate — show splash until Ollama is ready
+  // Startup gate — show splash until AI is ready
   const [startupComplete, setStartupComplete] = useState(false);
 
   // Onboarding gate — show welcome flow on first launch
@@ -65,7 +63,7 @@ function App() {
   return (
     <Layout
       tabs={{
-        studio: <StudioTab apiKey={apiKey} />,
+        studio: <StudioTab />,
         workshop: <WorkshopTab />,
         settings: <SettingsTab />,
         credits: <CreditsTab />,

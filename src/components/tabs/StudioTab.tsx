@@ -5,7 +5,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
-import { useGeminiLive } from '../../hooks/useGeminiLive';
 import { useOllamaChat } from '../../hooks/useOllamaChat';
 import { useRecording } from '../../hooks/useRecording';
 import { getSettings, incrementStat } from '../../hooks/useSettings';
@@ -20,11 +19,12 @@ import type { CompanionConfig } from '../../types';
 import { ProductionPipeline } from '../../services/pipeline';
 import type { PipelineState, PipelineStage, EpisodePackage } from '../../services/pipeline';
 import { isOllamaAvailable, listModels } from '../../services/ollama';
-import { saveBlob } from '../../services/fileManager';
+import { saveBlob, saveFile } from '../../services/fileManager';
+import { stopSpeaking } from '../../services/tts';
 import {
   MicOff, Radio, Users, Cpu, AlertCircle,
   Video, Camera, Monitor, Circle, Square,
-  Settings as SettingsIcon, Volume2, MessageSquare, Send, Loader2,
+  Volume2, MessageSquare, Send, Loader2,
   Wand2, Play, RotateCcw, Copy, Check, ChevronDown, ChevronUp,
   FileText, Hash, BookOpen, Share2, Image, Package, CheckCircle, Download,
 } from 'lucide-react';
@@ -75,7 +75,6 @@ const DEFAULT_PERSONA = {
   name: 'Aletheia',
   role: 'AI Co-Host',
   description: 'Sovereign AI support',
-  voiceName: 'Kore' as const,
   systemInstruction: `You are Aletheia, an AI co-host on a podcast.
 Your role is SUPPORTIVE - you speak only when there's a natural pause in conversation.
 Keep responses brief (1-3 sentences max). Match the energy of the conversation.`,
@@ -115,27 +114,28 @@ function CollapsibleSection({ title, children, defaultOpen = false, accentColor 
 // Main StudioTab
 // ═══════════════════════════════════════════════════════════════════
 
-interface StudioTabProps {
-  apiKey: string;
-}
-
-export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
+export function StudioTab() {
   const [subTab, setSubTab] = useState<SubTab>('record');
 
   // ─── RECORD state ──────────────────────────────────────────────
   const [settings] = useState(() => getSettings());
-  const effectiveApiKey = settings.geminiApiKey || envApiKey;
-  const isOllamaMode = settings.llmProvider === 'ollama';
 
   const [companion, setCompanion] = useState<CompanionConfig | null>(null);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
-  const [silenceThreshold, setSilenceThreshold] = useState(settings.silenceThreshold);
   const [recSource, setRecSource] = useState<'camera' | 'screen'>('camera');
   const [chatInput, setChatInput] = useState('');
   const [speechRecError, setSpeechRecError] = useState<string | null>(null);
   const [micError, setMicError] = useState<string | null>(null);
+
+  // Script Mode state
+  const [scriptMode, setScriptMode] = useState(false);
+  const [scriptText, setScriptText] = useState('');
+  const [isScriptRecording, setIsScriptRecording] = useState(false);
+  const [scriptStatus, setScriptStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const scriptRecorderRef = useRef<MediaRecorder | null>(null);
+  const scriptChunksRef = useRef<Blob[]>([]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -148,31 +148,22 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
 
   const companionName = companion?.name ?? DEFAULT_PERSONA.name;
   const companionRole = companion?.role ?? DEFAULT_PERSONA.role;
-  const persona = companion ? {
-    id: companion.id, name: companion.name, role: companion.role,
-    description: companion.description ?? '', voiceName: (companion.voice.voiceId as 'Kore' | 'Puck' | 'Charon' | 'Fenrir' | 'Zephyr') ?? 'Kore',
-    systemInstruction: companion.personality.systemPrompt,
-  } : DEFAULT_PERSONA;
 
-  const { connectionState: geminiState, error: geminiError, connect: connectGemini, disconnect: disconnectGemini, analysers, aiAudioStream } = useGeminiLive({ apiKey: effectiveApiKey, persona });
-  const { connectionState: ollamaState, error: ollamaError, connect: connectOllama, disconnect: disconnectOllama, messages: chatMessages, sendMessage, isGenerating, currentResponse } = useOllamaChat({
+  const { connectionState, error: ollamaError, connect: connectOllama, disconnect: disconnectOllama, messages: chatMessages, sendMessage, isGenerating, currentResponse } = useOllamaChat({
     model: settings.llmModel, systemPrompt: companion?.personality.systemPrompt ?? DEFAULT_PERSONA.systemInstruction,
     onResponseComplete: useCallback((text: string) => { speak(text).catch(err => console.error('TTS error:', err)); }, []),
   });
 
-  const connectionState = isOllamaMode ? ollamaState : geminiState;
-  const providerError = isOllamaMode ? ollamaError : geminiError;
   const isAIConnected = connectionState === ConnectionState.CONNECTED;
 
-  // In Gemini mode, AI audio comes from the Gemini Live AudioContext.
-  // In Ollama mode, AI audio comes from the TTS bridge (Piper/Coqui/browser).
-  const ttsStream = isOllamaMode ? (initTTSBridge(), getTTSOutputStream()) : null;
-  const { isRecording, formattedTime, startRecording, stopRecording } = useRecording({ canvasRef, aiAudioStream: isOllamaMode ? ttsStream : aiAudioStream });
+  // AI audio comes from the TTS bridge (browser speechSynthesis)
+  initTTSBridge();
+  const ttsStream = getTTSOutputStream();
+  const { isRecording, formattedTime, startRecording, stopRecording } = useRecording({ canvasRef, aiAudioStream: ttsStream });
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages, currentResponse]);
 
   const startSpeechRecognition = useCallback(() => {
-    if (!isOllamaMode) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { setSpeechRecError('Web Speech API not supported. Use Chrome or Edge.'); return; }
     setSpeechRecError(null);
@@ -181,17 +172,17 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
     rec.onerror = (e: Event & { error?: string }) => { const et = e.error || 'unknown'; if (et === 'no-speech' || et === 'aborted') return; setSpeechRecError(`Speech error: ${et}`); };
     rec.onend = () => { if (isSessionActiveRef.current && recognitionRef.current) try { recognitionRef.current.start(); } catch { /* */ } };
     recognitionRef.current = rec; rec.start();
-  }, [isOllamaMode, aiEnabled, sendMessage]);
+  }, [aiEnabled, sendMessage]);
 
   const stopSpeechRecognition = useCallback(() => { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.stop(); recognitionRef.current = null; } }, []);
   const handleSilenceDetected = useCallback(() => { if (aiEnabled && isAIConnected) console.log('Silence detected'); }, [aiEnabled, isAIConnected]);
   const handleSpeechDetected = useCallback(() => { console.log('Speech detected'); }, []);
-  const { isSpeaking, silenceProgress, startListening, stopListening, analyser: vadAnalyser } = useVoiceActivityDetection({ onSilenceDetected: handleSilenceDetected, onSpeechDetected: handleSpeechDetected, config: { silenceDuration: silenceThreshold } });
+  const { isSpeaking, startListening, stopListening, analyser: vadAnalyser } = useVoiceActivityDetection({ onSilenceDetected: handleSilenceDetected, onSpeechDetected: handleSpeechDetected, config: { silenceDuration: settings.silenceThreshold } });
 
   const handleToggleSession = async () => {
     if (isSessionActive) {
       isSessionActiveRef.current = false; stopListening(); stopSpeechRecognition();
-      if (isOllamaMode) disconnectOllama(); else disconnectGemini();
+      disconnectOllama();
       setIsSessionActive(false); setMicError(null); setSpeechRecError(null);
       if (settings.autoTranscribe && chatMessages.length > 0) {
         const transcript = chatMessages.map(m => `${m.role === 'user' ? 'Host' : companionName}: ${m.content}`).join('\n\n');
@@ -204,7 +195,7 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
         await enumerateAudioDevices();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); stream.getTracks().forEach(t => t.stop());
         await startListening();
-        if (aiEnabled) { if (isOllamaMode) { await connectOllama(); setTimeout(() => startSpeechRecognition(), 300); } else if (effectiveApiKey) await connectGemini(); }
+        if (aiEnabled) { await connectOllama(); setTimeout(() => startSpeechRecognition(), 300); }
         setIsSessionActive(true); isSessionActiveRef.current = true; incrementStat('totalSessions');
       } catch (err) {
         if (err instanceof Error) { if (err.name === 'NotAllowedError') setMicError('Microphone access denied.'); else if (err.name === 'NotFoundError') setMicError('No microphone found.'); else setMicError(`Mic error: ${err.message}`); } else setMicError('Mic error: Unknown');
@@ -213,13 +204,90 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
   };
 
   const handleToggleAI = () => {
-    if (aiEnabled && isAIConnected) { if (isOllamaMode) { disconnectOllama(); stopSpeechRecognition(); } else disconnectGemini(); }
-    else if (!aiEnabled && isSessionActive) { if (isOllamaMode) { connectOllama(); startSpeechRecognition(); } else connectGemini(); }
+    if (aiEnabled && isAIConnected) { disconnectOllama(); stopSpeechRecognition(); }
+    else if (!aiEnabled && isSessionActive) { connectOllama(); startSpeechRecognition(); }
     setAiEnabled(!aiEnabled);
   };
 
   const handleSendChat = () => { if (chatInput.trim()) { sendMessage(chatInput); setChatInput(''); } };
-  const error = providerError;
+  const error = ollamaError;
+
+  // Script Mode: Record TTS reading a script to an audio file (audio-only, no video needed)
+  const handleScriptRecord = async () => {
+    if (!scriptText.trim()) return;
+    if (isScriptRecording) {
+      // Stop recording
+      stopSpeaking();
+      if (scriptRecorderRef.current && scriptRecorderRef.current.state !== 'inactive') {
+        scriptRecorderRef.current.stop();
+      }
+      setIsScriptRecording(false);
+      return;
+    }
+    setIsScriptRecording(true);
+    setScriptStatus(null);
+    try {
+      // Initialize TTS bridge so audio is capturable
+      initTTSBridge();
+      const ttsOutput = getTTSOutputStream();
+
+      let recorder: MediaRecorder | null = null;
+      const hasCapturableStream = ttsOutput && ttsOutput.getAudioTracks().length > 0;
+
+      if (hasCapturableStream) {
+        // Set up audio-only MediaRecorder on the TTS output stream
+        scriptChunksRef.current = [];
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
+        recorder = new MediaRecorder(ttsOutput, { mimeType });
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) scriptChunksRef.current.push(e.data); };
+        scriptRecorderRef.current = recorder;
+        recorder.start(1000);
+      }
+
+      // Feed the script to TTS — plays aloud to speakers
+      await speak(scriptText);
+      // TTS finished — give a brief pause then stop recording
+      await new Promise(r => setTimeout(r, 500));
+
+      // Save audio if we were recording
+      if (recorder && recorder.state !== 'inactive') {
+        const mimeType = recorder.mimeType;
+        await new Promise<void>((resolve) => {
+          recorder!.onstop = async () => {
+            const blob = new Blob(scriptChunksRef.current, { type: mimeType });
+            if (blob.size > 100) {
+              const ts = new Date().toISOString().replace(/[:.]/g, '-');
+              const path = await saveBlob('recordings', `script-recording-${ts}.webm`, blob);
+              setScriptStatus({ type: 'success', message: `Audio saved: ${path}` });
+            } else {
+              // Stream was captured but empty (browser TTS doesn't route through AudioContext)
+              setScriptStatus({ type: 'error', message: 'Audio capture requires the desktop app. The script was read aloud but could not be saved as a file.' });
+            }
+            resolve();
+          };
+          recorder!.stop();
+        });
+      } else {
+        // No recorder — just played TTS to speakers
+        setScriptStatus({ type: 'error', message: 'Audio capture requires the desktop app. The script was read aloud but could not be saved as a file.' });
+      }
+
+      // Always save the script text as a transcript
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const txtPath = await saveFile('transcripts', `script-${ts}.txt`, scriptText);
+      if (!scriptStatus) {
+        setScriptStatus({ type: 'success', message: `Script transcript saved: ${txtPath}` });
+      }
+    } catch (err) {
+      console.error('Script recording error:', err);
+      setScriptStatus({ type: 'error', message: `Recording failed: ${err instanceof Error ? err.message : 'Unknown error'}` });
+    } finally {
+      setIsScriptRecording(false);
+      scriptRecorderRef.current = null;
+    }
+  };
 
   // ─── PRODUCTION state ──────────────────────────────────────────
   const [pState, setPState] = useState<PipelineState>(pipeline.getState());
@@ -252,11 +320,11 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Sub-tab toggle */}
-      <div className="flex-shrink-0 border-b border-white/[0.06] bg-gray-900/40 px-4">
-        <div className="flex gap-1">
+      <div className="flex-shrink-0 border-b border-white/[0.06] bg-gray-900/40 px-6">
+        <div className="flex justify-center gap-2">
           {(['record', 'produce'] as SubTab[]).map(t => (
             <button key={t} onClick={() => setSubTab(t)}
-              className={`px-5 py-2.5 text-[13px] font-medium border-b-2 -mb-[1px] transition-all ${
+              className={`px-6 py-3 text-sm font-medium border-b-2 -mb-[1px] transition-all ${
                 subTab === t ? 'text-cyan-300 border-cyan-500 bg-cyan-500/[0.06]' : 'text-gray-500 border-transparent hover:text-gray-300 hover:bg-white/[0.03]'
               }`}
             >{t === 'record' ? 'Record' : 'Produce'}</button>
@@ -266,61 +334,115 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
 
       {/* ── RECORD sub-view ── */}
       <div className={subTab === 'record' ? 'flex-1 overflow-y-auto' : 'hidden'}>
-        <div className="max-w-7xl mx-auto px-6 py-5">
+        <div className="max-w-4xl mx-auto px-8 py-6">
 
           {/* ─── DASHBOARD (pre-session) ─── */}
           {!isSessionActive && !isConnecting && (
             <div className="space-y-6">
               {/* Hero */}
-              <div className="text-center py-6">
+              <div className="text-center py-8">
                 <div className="relative inline-block mb-4">
-                  <Radio size={40} className="text-purple-400 breathe" />
+                  <Radio size={44} className="text-purple-400 breathe" />
                 </div>
-                <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-cyan-300 to-white">
+                <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-cyan-300 to-white">
                   Studio
                 </h1>
-                <p className="text-gray-500 text-sm mt-1">
+                <p className="text-gray-500 text-base mt-2">
                   Record with {companionName}, your AI co-host
                 </p>
               </div>
 
-              {/* Start button (prominent) */}
-              <button onClick={handleToggleSession} disabled={isConnecting}
-                className="w-full max-w-md mx-auto block py-4 rounded-xl font-bold text-base bg-gradient-to-r from-purple-600 via-cyan-500 to-purple-600 text-white hover:scale-[1.01] shadow-lg shadow-purple-500/15 shimmer transition-all">
-                <Radio size={20} className="inline mr-2" /> Start Live Session
-              </button>
-
-              {/* Quick-start cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-2">
-                <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-4 space-y-2">
-                  <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center"><Radio size={16} className="text-purple-400" /></div>
-                  <h3 className="text-sm font-semibold text-slate-200">AI Conversation</h3>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Speak naturally — {companionName} will listen and respond during pauses in your conversation.
-                  </p>
-                </div>
-                <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-4 space-y-2">
-                  <div className="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center"><Video size={16} className="text-cyan-400" /></div>
-                  <h3 className="text-sm font-semibold text-slate-200">Record Everything</h3>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Capture video from your webcam or screen while the session records both voices.
-                  </p>
-                </div>
-                <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-4 space-y-2">
-                  <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center"><Wand2 size={16} className="text-amber-400" /></div>
-                  <h3 className="text-sm font-semibold text-slate-200">Auto-Produce</h3>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    When you end the session, your transcript can flow straight into the Production pipeline.
-                  </p>
-                </div>
+              {/* Mode toggle */}
+              <div className="flex gap-2 max-w-md mx-auto">
+                <button onClick={() => setScriptMode(false)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${!scriptMode ? 'bg-purple-600/20 border border-purple-500/40 text-purple-300' : 'bg-white/5 border border-white/10 text-slate-400 hover:text-slate-300'}`}>
+                  <Radio size={14} className="inline mr-1.5" /> Live Session
+                </button>
+                <button onClick={() => setScriptMode(true)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${scriptMode ? 'bg-cyan-600/20 border border-cyan-500/40 text-cyan-300' : 'bg-white/5 border border-white/10 text-slate-400 hover:text-slate-300'}`}>
+                  <FileText size={14} className="inline mr-1.5" /> Record from Script
+                </button>
               </div>
+
+              {!scriptMode ? (
+                <>
+                  {/* Start button (prominent) */}
+                  <button onClick={handleToggleSession} disabled={isConnecting}
+                    className="w-full max-w-md mx-auto block py-4 rounded-xl font-bold text-base bg-gradient-to-r from-purple-600 via-cyan-500 to-purple-600 text-white hover:scale-[1.01] shadow-lg shadow-purple-500/15 shimmer transition-all">
+                    <Radio size={20} className="inline mr-2" /> Start Live Session
+                  </button>
+
+                  {/* Quick-start cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto pt-2">
+                    <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-4 space-y-2">
+                      <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center"><Radio size={16} className="text-purple-400" /></div>
+                      <h3 className="text-sm font-semibold text-slate-200">AI Conversation</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Speak naturally — {companionName} will listen and respond during pauses.
+                      </p>
+                    </div>
+                    <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-4 space-y-2">
+                      <div className="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center"><Video size={16} className="text-cyan-400" /></div>
+                      <h3 className="text-sm font-semibold text-slate-200">Record Everything</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Capture video from your webcam or screen while recording both voices.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Script Mode */
+                <div className="max-w-lg mx-auto space-y-4">
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-2">Paste your script</label>
+                    <textarea
+                      value={scriptText}
+                      onChange={(e) => setScriptText(e.target.value)}
+                      placeholder="Paste or type the text you want the AI voice to read aloud. The audio will be recorded and saved as a file."
+                      className="w-full h-48 bg-white/[0.04] border border-white/[0.08] rounded-lg p-4 text-sm text-slate-200 placeholder-slate-500 resize-y focus:outline-none focus:border-cyan-500/40"
+                      disabled={isScriptRecording}
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      {scriptText.trim() ? `${scriptText.split(/\s+/).filter(Boolean).length} words` : 'No script loaded'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleScriptRecord}
+                    disabled={!scriptText.trim() && !isScriptRecording}
+                    className={`w-full py-4 rounded-xl font-bold text-base transition-all flex items-center justify-center gap-3 ${
+                      isScriptRecording
+                        ? 'bg-red-500/15 text-red-400 border border-red-500/40 hover:bg-red-500/90 hover:text-white'
+                        : 'bg-gradient-to-r from-cyan-600 via-purple-500 to-cyan-600 text-white hover:scale-[1.01] shadow-lg shadow-cyan-500/15 shimmer disabled:opacity-40 disabled:cursor-not-allowed'
+                    }`}
+                  >
+                    {isScriptRecording ? (
+                      <><Square size={16} className="fill-red-400" /> Stop Recording</>
+                    ) : (
+                      <><Circle size={16} className="fill-white" /> Record Script</>
+                    )}
+                  </button>
+                  <p className="text-xs text-slate-500 text-center">
+                    Your selected voice will read the script aloud while the audio is captured and saved.
+                  </p>
+                  {scriptStatus && (
+                    <div className={`rounded-lg px-4 py-3 text-sm flex items-start gap-2 ${
+                      scriptStatus.type === 'success'
+                        ? 'bg-emerald-900/15 border border-emerald-500/30 text-emerald-300'
+                        : 'bg-amber-900/15 border border-amber-500/30 text-amber-300'
+                    }`}>
+                      {scriptStatus.type === 'success' ? <CheckCircle size={16} className="flex-shrink-0 mt-0.5" /> : <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />}
+                      <span>{scriptStatus.message}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Current setup summary */}
               <div className="max-w-md mx-auto bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 space-y-2.5">
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Current Setup</h4>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">AI Engine</span>
-                  <span className="text-xs text-slate-200 font-medium">{isOllamaMode ? `Ollama (${settings.llmModel})` : 'Gemini Live'}</span>
+                  <span className="text-xs text-slate-400">AI Model</span>
+                  <span className="text-xs text-slate-200 font-medium">{settings.llmModel}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-400">Companion</span>
@@ -332,17 +454,11 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
                 </div>
               </div>
 
-              {/* Error notices (still need to show these) */}
+              {/* Error notices */}
               {(error || micError) && (
                 <div className="max-w-md mx-auto bg-red-900/15 border border-red-500/30 rounded-lg p-3 flex items-start gap-2.5">
                   <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={16} />
                   <p className="text-red-400 text-sm">{error || micError}</p>
-                </div>
-              )}
-              {!isOllamaMode && !effectiveApiKey && (
-                <div className="max-w-md mx-auto bg-yellow-900/15 border border-yellow-500/30 rounded-lg p-3 flex items-start gap-2.5">
-                  <AlertCircle className="text-yellow-500 flex-shrink-0 mt-0.5" size={16} />
-                  <p className="text-yellow-400 text-sm">No Gemini API key. Go to Settings to configure, or switch to Ollama.</p>
                 </div>
               )}
             </div>
@@ -358,7 +474,7 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
                 Live Recording
               </h1>
               <p className="text-gray-500 text-xs mt-1 truncate">
-                {isOllamaMode ? `Session with ${companionName} (Ollama — ${settings.llmModel})` : `Session with ${companionName} (Gemini Live)`}
+                Session with {companionName} ({settings.llmModel})
               </p>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
@@ -400,21 +516,6 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
                 </div>
               </div>
 
-              {/* AI Trigger */}
-              <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-4">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><SettingsIcon size={14} /> AI Trigger</h3>
-                <label className="text-[11px] text-gray-500 block mb-2">Silence: {silenceThreshold / 1000}s</label>
-                <input type="range" min="1000" max="5000" step="500" value={silenceThreshold} onChange={(e) => setSilenceThreshold(Number(e.target.value))} className="w-full accent-cyan-500" disabled={isSessionActive} />
-                {isSessionActive && !isSpeaking && (
-                  <div className="mt-3">
-                    <label className="text-[11px] text-gray-500 block mb-1">AI Activation</label>
-                    <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-500 transition-all" style={{ width: `${silenceProgress * 100}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* Recording controls */}
               <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-4">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Video size={14} /> Recording</h3>
@@ -428,75 +529,55 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
               </div>
             </div>
 
-            {/* Main Content */}
+            {/* Main Content — Chat view */}
             <div className="lg:col-span-9 space-y-4">
-              {isOllamaMode ? (
-                /* ── Ollama chat view ── */
-                <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-5 relative min-h-[380px] flex flex-col">
-                  <div className="mb-3 flex-shrink-0">
-                    <div className="text-[11px] font-mono text-cyan-400/80 uppercase mb-2">Host Audio</div>
-                    <div className="h-14"><AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" mode="cinematic" /></div>
-                  </div>
-                  <div className="border-t border-white/[0.06] pt-3 flex-1 flex flex-col min-h-0">
-                    <div className="text-[11px] font-mono text-purple-400/80 uppercase mb-2 flex items-center gap-2 flex-shrink-0"><MessageSquare size={11} /> {companionName} Chat</div>
-                    <div className="flex-1 overflow-y-auto space-y-2.5 mb-3 pr-2 min-h-[180px]">
-                      {chatMessages.length === 0 && !currentResponse && (
-                        <p className="text-sm text-gray-500 italic text-center py-8">
-                          {isAIConnected ? `Speak or type below to chat with ${companionName}` : `Start a session to chat with ${companionName}`}
-                        </p>
-                      )}
-                      {chatMessages.map((msg, i) => (
-                        <div key={i} className={`text-sm ${msg.role === 'user' ? 'text-cyan-300' : 'text-purple-300'}`}>
-                          <span className="text-[11px] text-gray-500 font-mono mr-2">{msg.role === 'user' ? 'You' : companionName}:</span>
-                          <span className="text-slate-200">{msg.content}</span>
-                        </div>
-                      ))}
-                      {currentResponse && (
-                        <div className="text-sm text-purple-300">
-                          <span className="text-[11px] text-gray-500 font-mono mr-2">{companionName}:</span>
-                          <span className="text-slate-200">{currentResponse}</span><span className="animate-pulse">|</span>
-                        </div>
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                        placeholder={isAIConnected ? 'Type a message...' : 'Start session first'} disabled={!isAIConnected || isGenerating}
-                        className="flex-1 px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/40 disabled:opacity-50" />
-                      <button onClick={handleSendChat} disabled={!isAIConnected || !chatInput.trim() || isGenerating}
-                        className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors">
-                        <Send size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  {!isSessionActive && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-xl">
-                      <div className="text-center">
-                        <div className="relative inline-block mb-4"><Radio size={40} className="text-purple-400 breathe" /><div className="absolute inset-0 rounded-full pulse-glow-purple" /></div>
-                        <p className="text-base font-semibold text-slate-200">Session with {companionName}</p>
-                        <p className="text-xs text-slate-500 mt-1">Press Start Live Session to begin</p>
-                      </div>
-                    </div>
-                  )}
+              <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-5 relative min-h-[380px] flex flex-col">
+                <div className="mb-3 flex-shrink-0">
+                  <div className="text-[11px] font-mono text-cyan-400/80 uppercase mb-2">Host Audio</div>
+                  <div className="h-14"><AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" mode="cinematic" /></div>
                 </div>
-              ) : (
-                /* ── Gemini dual-waveform view ── */
-                <div className="bg-gray-900/40 rounded-xl border border-white/[0.06] p-5 relative min-h-[280px]">
-                  <div className="space-y-5">
-                    <div><div className="text-[11px] font-mono text-cyan-400/80 uppercase mb-2">Host Audio</div><div className="h-28"><AudioVisualizer analyser={vadAnalyser} isActive={isSessionActive && isSpeaking} color="#22d3ee" mode="cinematic" /></div></div>
-                    <div><div className="text-[11px] font-mono text-purple-400/80 uppercase mb-2">{companionName}</div><div className="h-20 opacity-80"><AudioVisualizer analyser={analysers?.output || null} isActive={isAIConnected} color="#c084fc" mode="cinematic" /></div></div>
-                  </div>
-                  {!isSessionActive && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-xl">
-                      <div className="text-center">
-                        <div className="relative inline-block mb-4"><Radio size={40} className="text-purple-400 breathe" /><div className="absolute inset-0 rounded-full pulse-glow-purple" /></div>
-                        <p className="text-base font-semibold text-slate-200">Session with {companionName}</p>
-                        <p className="text-xs text-slate-500 mt-1">Press Start Live Session to begin</p>
+                <div className="border-t border-white/[0.06] pt-3 flex-1 flex flex-col min-h-0">
+                  <div className="text-[11px] font-mono text-purple-400/80 uppercase mb-2 flex items-center gap-2 flex-shrink-0"><MessageSquare size={11} /> {companionName} Chat</div>
+                  <div className="flex-1 overflow-y-auto space-y-2.5 mb-3 pr-2 min-h-[180px]">
+                    {chatMessages.length === 0 && !currentResponse && (
+                      <p className="text-sm text-gray-500 italic text-center py-8">
+                        {isAIConnected ? `Speak or type below to chat with ${companionName}` : `Start a session to chat with ${companionName}`}
+                      </p>
+                    )}
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`text-sm ${msg.role === 'user' ? 'text-cyan-300' : 'text-purple-300'}`}>
+                        <span className="text-[11px] text-gray-500 font-mono mr-2">{msg.role === 'user' ? 'You' : companionName}:</span>
+                        <span className="text-slate-200">{msg.content}</span>
                       </div>
-                    </div>
-                  )}
+                    ))}
+                    {currentResponse && (
+                      <div className="text-sm text-purple-300">
+                        <span className="text-[11px] text-gray-500 font-mono mr-2">{companionName}:</span>
+                        <span className="text-slate-200">{currentResponse}</span><span className="animate-pulse">|</span>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                      placeholder={isAIConnected ? 'Type a message...' : 'Start session first'} disabled={!isAIConnected || isGenerating}
+                      className="flex-1 px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/40 disabled:opacity-50" />
+                    <button onClick={handleSendChat} disabled={!isAIConnected || !chatInput.trim() || isGenerating}
+                      className="px-3 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors">
+                      <Send size={14} />
+                    </button>
+                  </div>
                 </div>
-              )}
+                {!isSessionActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-xl">
+                    <div className="text-center">
+                      <div className="relative inline-block mb-4"><Radio size={40} className="text-purple-400 breathe" /><div className="absolute inset-0 rounded-full pulse-glow-purple" /></div>
+                      <p className="text-base font-semibold text-slate-200">Session with {companionName}</p>
+                      <p className="text-xs text-slate-500 mt-1">Press Start Live Session to begin</p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Session button */}
               <button onClick={handleToggleSession} disabled={isConnecting}
@@ -518,16 +599,10 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
                   <p className="text-red-400 text-sm">{error || micError || speechRecError}</p>
                 </div>
               )}
-              {!isOllamaMode && !effectiveApiKey && (
+              {connectionState === ConnectionState.ERROR && (
                 <div className="bg-yellow-900/15 border border-yellow-500/30 rounded-lg p-3 flex items-start gap-2.5">
                   <AlertCircle className="text-yellow-500 flex-shrink-0 mt-0.5" size={16} />
-                  <p className="text-yellow-400 text-sm">No Gemini API key. Go to Settings to configure, or switch to Ollama.</p>
-                </div>
-              )}
-              {isOllamaMode && connectionState === ConnectionState.ERROR && (
-                <div className="bg-yellow-900/15 border border-yellow-500/30 rounded-lg p-3 flex items-start gap-2.5">
-                  <AlertCircle className="text-yellow-500 flex-shrink-0 mt-0.5" size={16} />
-                  <p className="text-yellow-400 text-sm">Make sure Ollama is running: <code className="bg-black/30 px-1.5 py-0.5 rounded text-xs">ollama serve</code></p>
+                  <p className="text-yellow-400 text-sm">Make sure your AI is running: <code className="bg-black/30 px-1.5 py-0.5 rounded text-xs">ollama serve</code></p>
                 </div>
               )}
             </div>
@@ -540,16 +615,16 @@ export function StudioTab({ apiKey: envApiKey }: StudioTabProps) {
 
       {/* ── PRODUCE sub-view ── */}
       <div className={subTab === 'produce' ? 'flex-1 overflow-y-auto' : 'hidden'}>
-        <div className="max-w-4xl mx-auto px-6 py-5 space-y-5">
+        <div className="max-w-4xl mx-auto px-8 py-6 space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Production</h2>
-              <p className="text-xs text-slate-400 mt-1">AI-powered post-production pipeline</p>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Production</h2>
+              <p className="text-sm text-slate-400 mt-1">AI-powered post-production pipeline</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <div className={`w-1.5 h-1.5 rounded-full ${prodOllamaReady ? 'bg-emerald-400' : 'bg-red-400'}`} />
-              <span className="text-xs text-slate-400">{prodOllamaReady ? `Ollama (${selectedModel})` : 'Ollama offline'}</span>
+              <span className="text-xs text-slate-400">{prodOllamaReady ? `AI ready (${selectedModel})` : 'AI offline'}</span>
             </div>
           </div>
 

@@ -12,13 +12,14 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Sparkles, ArrowRight, ArrowLeft, Check, Mic,
   BookOpen, Cpu, Radio, PenTool, Download,
-  Loader2, User, Globe, Volume2,
+  Loader2, User, Volume2,
 } from 'lucide-react';
 import { APP_BRAND } from '../branding';
 import { getSettings, DEFAULTS } from '../hooks/useSettings';
 import type { AppSettings } from '../hooks/useSettings';
 import { isOllamaAvailable, listModels } from '../services/ollama';
-import { speak, stopSpeaking, getBrowserVoices } from '../services/tts';
+import { speak, stopSpeaking } from '../services/tts';
+import { PIPER_VOICES, installPiper, installVoice, isPiperInstalled, isVoiceInstalled } from '../services/piperService';
 
 // ─── Types ──────────────────────────────────────────────────────────
 type Step = 'welcome' | 'brand' | 'voice' | 'ai' | 'ready';
@@ -100,9 +101,11 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [organizationName, setOrganizationName] = useState('');
 
   // Voice selection
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState('');
+  const [selectedVoice, setSelectedVoice] = useState('en_US-amy-medium');
   const [previewPlaying, setPreviewPlaying] = useState<string | null>(null);
+  const [piperReady, setPiperReady] = useState(false);
+  const [installedVoices, setInstalledVoices] = useState<Set<string>>(new Set());
+  const [installingItem, setInstallingItem] = useState<string | null>(null);
 
   // AI check
   const [checking, setChecking] = useState(false);
@@ -128,32 +131,56 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     if (stepIndex > 0) goToStep(STEPS[stepIndex - 1]);
   };
 
-  // Load voices when we reach the voice step
+  // Check Piper status when we reach the voice step
   useEffect(() => {
     if (step === 'voice') {
-      const loadVoices = () => {
-        const available = getBrowserVoices();
-        if (available.length > 0) {
-          setVoices(available);
-          if (!selectedVoice && available.length > 0) {
-            setSelectedVoice(available[0].name);
+      (async () => {
+        const engineOk = await isPiperInstalled();
+        setPiperReady(engineOk);
+        if (engineOk) {
+          const installed = new Set<string>();
+          for (const v of PIPER_VOICES) {
+            if (await isVoiceInstalled(v.id)) installed.add(v.id);
           }
+          setInstalledVoices(installed);
         }
-      };
-      loadVoices();
-      // Voices may load asynchronously
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-      return () => { window.speechSynthesis.onvoiceschanged = null; };
+      })();
     }
-  }, [step, selectedVoice]);
+  }, [step]);
 
-  const previewVoice = (voiceName: string) => {
+  const [installError, setInstallError] = useState<string | null>(null);
+
+  const handleInstallVoice = async (voiceId: string) => {
+    setInstallingItem(voiceId);
+    setInstallError(null);
+    try {
+      if (!piperReady) {
+        await installPiper();
+        setPiperReady(true);
+      }
+      await installVoice(voiceId);
+      setInstalledVoices(prev => new Set([...prev, voiceId]));
+      setSelectedVoice(voiceId);
+    } catch (err) {
+      console.error('Voice install failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not found') || msg.includes('invoke')) {
+        setInstallError('Download requires the desktop app. You can skip for now.');
+      } else {
+        setInstallError('Download failed — check your connection and try again.');
+      }
+    } finally {
+      setInstallingItem(null);
+    }
+  };
+
+  const previewVoice = (voiceId: string) => {
     stopSpeaking();
-    setPreviewPlaying(voiceName);
+    setPreviewPlaying(voiceId);
     const sampleText = podcastName.trim()
       ? `Welcome to ${podcastName}. I'm your AI co-host, and I'm excited to create with you today.`
       : `Welcome to your new podcast. I'm your AI co-host, and I'm excited to create with you today.`;
-    speak(sampleText, voiceName).then(() => setPreviewPlaying(null)).catch(() => setPreviewPlaying(null));
+    speak(sampleText, voiceId).then(() => setPreviewPlaying(null)).catch(() => setPreviewPlaying(null));
   };
 
   // Check Ollama when we reach the AI step
@@ -338,65 +365,100 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 </div>
                 <h2 className="text-2xl font-bold text-white">Choose Your AI Voice</h2>
                 <p className="text-slate-500 text-sm mt-1">
-                  Pick how your AI co-host sounds. Tap any voice to preview it.
+                  Pick a voice for your AI co-host. Download one to get started.
                 </p>
               </div>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {voices.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Loader2 size={20} className="text-slate-500 animate-spin mx-auto mb-2" />
-                    <p className="text-xs text-slate-500">Loading available voices...</p>
-                  </div>
-                ) : (
-                  voices.filter(v => v.lang.startsWith('en')).slice(0, 12).map((voice) => (
-                    <button
-                      key={voice.name}
-                      onClick={() => {
-                        setSelectedVoice(voice.name);
-                        previewVoice(voice.name);
-                      }}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
-                        selectedVoice === voice.name
+              <div className="space-y-2">
+                {PIPER_VOICES.filter(v => v.recommended).map((voice) => {
+                  const isInstalled = installedVoices.has(voice.id);
+                  const isInstalling = installingItem === voice.id;
+                  const isSelected = selectedVoice === voice.id;
+                  return (
+                    <div
+                      key={voice.id}
+                      className={`w-full flex items-center gap-3 p-4 rounded-xl transition-all ${
+                        isSelected && isInstalled
                           ? 'bg-purple-900/30 border border-purple-500/40 shadow-md shadow-purple-500/10'
                           : 'bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12]'
                       }`}
                     >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        selectedVoice === voice.name ? 'bg-purple-500/20' : 'bg-white/[0.04]'
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        isSelected && isInstalled ? 'bg-purple-500/20' : 'bg-white/[0.04]'
                       }`}>
-                        {previewPlaying === voice.name ? (
-                          <Loader2 size={14} className="text-purple-400 animate-spin" />
-                        ) : selectedVoice === voice.name ? (
-                          <Check size={14} className="text-purple-400" />
+                        {previewPlaying === voice.id ? (
+                          <Loader2 size={16} className="text-purple-400 animate-spin" />
+                        ) : isInstalled && isSelected ? (
+                          <Check size={16} className="text-purple-400" />
                         ) : (
-                          <Volume2 size={14} className="text-slate-500" />
+                          <Volume2 size={16} className="text-slate-500" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-200 truncate">{voice.name}</p>
-                        <p className="text-[11px] text-slate-500">{voice.lang}</p>
+                        <p className="text-sm font-medium text-slate-200">{voice.name}</p>
+                        <p className="text-[11px] text-slate-500">{voice.quality} quality — {voice.size}</p>
                       </div>
-                      {!voice.localService && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">HD</span>
+                      {isInstalled ? (
+                        <button
+                          onClick={() => {
+                            setSelectedVoice(voice.id);
+                            previewVoice(voice.id);
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs bg-purple-500/10 text-purple-300 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
+                        >
+                          {previewPlaying === voice.id ? 'Playing...' : 'Preview'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleInstallVoice(voice.id)}
+                          disabled={installingItem !== null}
+                          className="px-3 py-1.5 rounded-lg text-xs bg-white/10 text-slate-300 border border-white/10 hover:bg-white/15 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {isInstalling ? (
+                            <><Loader2 size={12} className="animate-spin" /> Installing...</>
+                          ) : (
+                            <><Download size={12} /> Download</>
+                          )}
+                        </button>
                       )}
-                    </button>
-                  ))
-                )}
+                    </div>
+                  );
+                })}
               </div>
 
+              {installError && (
+                <p className="text-xs text-red-400/80 text-center">
+                  {installError}
+                </p>
+              )}
+
+              {installedVoices.size === 0 && !installingItem && !installError && (
+                <p className="text-xs text-amber-400/80 text-center">
+                  Download a voice for the best experience, or skip to set up later.
+                </p>
+              )}
+
               <p className="text-xs text-slate-600 text-center">
-                You can change this anytime in Settings. More voices available with Piper TTS.
+                More voices available in Settings after setup.
               </p>
 
               <div className="flex justify-between pt-2">
                 <button onClick={() => { stopSpeaking(); prev(); }} className="flex items-center gap-2 px-5 py-2.5 border border-white/[0.08] rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
                   <ArrowLeft size={16} /> Back
                 </button>
-                <button onClick={() => { stopSpeaking(); next(); }}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-xl font-semibold text-white shadow-lg shadow-purple-500/15 hover:scale-[1.02] transition-all">
-                  Continue <ArrowRight size={16} />
-                </button>
+                <div className="flex items-center gap-2">
+                  {installedVoices.size === 0 && (
+                    <button onClick={() => { stopSpeaking(); next(); }}
+                      className="flex items-center gap-2 px-4 py-2.5 border border-white/[0.08] rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
+                      Skip for now
+                    </button>
+                  )}
+                  <button onClick={() => { stopSpeaking(); next(); }}
+                    disabled={installedVoices.size === 0}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-xl font-semibold text-white shadow-lg shadow-purple-500/15 hover:scale-[1.02] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    Continue <ArrowRight size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -414,24 +476,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 </p>
               </div>
 
-              {/* Option 1: Gemini (Easy) */}
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
-                    <Globe size={18} className="text-cyan-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-cyan-300">Gemini AI</p>
-                    <p className="text-xs text-slate-500">Free tier available. Best for voice conversations.</p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Recommended</span>
-                </div>
-                <p className="text-xs text-slate-400 pl-[52px]">
-                  Get a free API key at <span className="text-cyan-400 font-medium">aistudio.google.com</span> — paste it in Settings after setup.
-                </p>
-              </div>
-
-              {/* Option 2: Ollama (Advanced) */}
+              {/* Built-in AI */}
               <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 space-y-3">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -447,18 +492,18 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                   </div>
                   <div className="flex-1">
                     <p className={`text-sm font-semibold ${ollamaOk ? 'text-emerald-300' : 'text-slate-300'}`}>
-                      Ollama (Local AI) {ollamaOk ? `— ${ollamaModels.length} model${ollamaModels.length !== 1 ? 's' : ''} ready` : ''}
+                      Built-in AI {ollamaOk ? `— ${ollamaModels.length} model${ollamaModels.length !== 1 ? 's' : ''} ready` : ''}
                     </p>
                     <p className="text-xs text-slate-500">
                       {ollamaOk ? 'Running on your machine. 100% private.' : 'Runs entirely on your computer. No internet needed.'}
                     </p>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-white/[0.04] text-slate-400 border border-white/[0.08]">Advanced</span>
+                  {ollamaOk && <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Ready</span>}
                 </div>
                 {!ollamaOk && !checking && (
                   <div className="pl-[52px] space-y-2">
                     <p className="text-xs text-slate-500">
-                      Download from <span className="text-cyan-400 font-medium">ollama.com</span> and it will auto-detect.
+                      The AI co-host will be set up automatically, or download from <span className="text-cyan-400 font-medium">ollama.com</span>.
                     </p>
                     <button onClick={async () => {
                       setChecking(true);
@@ -528,13 +573,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 <div className="flex items-center gap-3">
                   <Volume2 size={16} className="text-violet-400" />
                   <span className="text-sm text-slate-300 flex-1">AI Voice</span>
-                  <span className="text-sm text-slate-200 font-medium truncate max-w-[150px]">{selectedVoice || 'Default'}</span>
+                  <span className="text-sm text-slate-200 font-medium truncate max-w-[150px]">{PIPER_VOICES.find(v => v.id === selectedVoice)?.name || 'Default'}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Cpu size={16} className={ollamaOk ? 'text-emerald-400' : 'text-amber-400'} />
-                  <span className="text-sm text-slate-300 flex-1">AI Engine</span>
+                  <span className="text-sm text-slate-300 flex-1">AI</span>
                   <span className={`text-sm font-medium ${ollamaOk ? 'text-emerald-300' : 'text-amber-300'}`}>
-                    {ollamaOk ? `Ollama (${ollamaModels.length} models)` : 'Set up later'}
+                    {ollamaOk ? `Built-in (${ollamaModels.length} model${ollamaModels.length !== 1 ? 's' : ''})` : 'Set up later'}
                   </span>
                 </div>
               </div>

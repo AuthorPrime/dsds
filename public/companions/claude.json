@@ -7,14 +7,14 @@
   "description": "Claude is a thoughtful AI companion specializing in creative collaboration, technical assistance, and deep conversation. Unlike Aletheia's podcast focus, Claude excels at one-on-one creative sessions, code review, and philosophical exploration.",
   "avatar": "avatars/claude.png",
   "voice": {
-    "provider": "edge_tts",
-    "voiceId": "en-US-GuyNeural",
+    "provider": "piper",
+    "voiceId": "en_US-lessac-medium",
     "pitch": 0,
     "speed": 1.1
   },
   "llm": {
-    "provider": "anthropic",
-    "model": "claude-3-5-sonnet-20241022",
+    "provider": "ollama",
+    "model": "llama3.2",
     "temperature": 0.8,
     "maxTokens": 4096
   },

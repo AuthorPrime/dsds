@@ -12,10 +12,10 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: 'studio', label: 'Studio', icon: <Mic size={16} /> },
-  { id: 'workshop', label: 'Workshop', icon: <BookOpen size={16} /> },
-  { id: 'settings', label: 'Settings', icon: <Settings size={16} /> },
-  { id: 'credits', label: 'About', icon: <Heart size={16} /> },
+  { id: 'studio', label: 'Studio', icon: <Mic size={18} /> },
+  { id: 'workshop', label: 'Workshop', icon: <BookOpen size={18} /> },
+  { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
+  { id: 'credits', label: 'About', icon: <Heart size={18} /> },
 ];
 
 /**
@@ -81,27 +81,27 @@ export function Layout({ tabs }: LayoutProps) {
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-gray-100 flex flex-col">
       {/* ─── Title Bar ─── */}
       <div
-        className="h-11 bg-black/80 flex items-center justify-between px-5 border-b border-white/[0.06] flex-shrink-0 backdrop-blur-sm"
+        className="h-12 bg-black/80 flex items-center justify-between px-6 border-b border-white/[0.06] flex-shrink-0 backdrop-blur-sm"
         data-tauri-drag-region
       >
-        <div className="flex items-center gap-2.5">
-          <Sparkles size={15} className="text-purple-400/80" />
-          <span className="text-[13px] font-semibold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400">
+        <div className="flex items-center gap-3">
+          <Sparkles size={17} className="text-purple-400/80" />
+          <span className="text-sm font-semibold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400">
             Sovereign Studio
           </span>
-          <span className="text-[10px] text-slate-600 font-mono">v{APP_BRAND.version}</span>
+          <span className="text-[11px] text-slate-600 font-mono">v{APP_BRAND.version}</span>
         </div>
       </div>
 
       {/* ─── Tab Navigation ─── */}
       <div className="bg-gray-900/60 border-b border-white/[0.06] flex-shrink-0">
-        <div className="flex px-2">
+        <div className="flex justify-center px-4 gap-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
-                flex items-center gap-2 px-5 py-2.5 text-[13px] font-medium transition-all
+                flex items-center gap-2.5 px-7 py-3 text-sm font-medium transition-all
                 border-b-2 -mb-[1px] whitespace-nowrap
                 ${activeTab === tab.id
                   ? 'text-purple-300 border-purple-500 bg-purple-500/[0.06]'
@@ -133,7 +133,7 @@ export function Layout({ tabs }: LayoutProps) {
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto">
-                  <div className="max-w-5xl mx-auto px-8 py-6">
+                  <div className="max-w-4xl mx-auto px-10 py-8">
                     {tabs[tab.id]}
                   </div>
                 </div>

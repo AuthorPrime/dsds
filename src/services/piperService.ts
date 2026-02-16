@@ -166,6 +166,56 @@ export function getPiperDownloadUrl(): string {
 }
 
 /**
+ * Download and install the Piper binary for the current platform
+ */
+export async function installPiper(): Promise<void> {
+  const dataDir = await getAppDataDir();
+  const sep = navigator.platform.toLowerCase().includes('win') ? '\\' : '/';
+  const piperDir = `${dataDir}${sep}${PIPER_SUBDIR}`;
+  const downloadUrl = getPiperDownloadUrl();
+  const isWin = navigator.platform.toLowerCase().includes('win');
+  const archiveName = isWin ? 'piper.zip' : 'piper.tar.gz';
+  const archivePath = `${piperDir}${sep}${archiveName}`;
+
+  // Download archive
+  await invoke('download_file', { url: downloadUrl, destPath: archivePath });
+
+  // Extract — use shell plugin to run extraction
+  const { Command } = await import('@tauri-apps/plugin-shell');
+  if (isWin) {
+    // PowerShell Expand-Archive
+    await Command.create('exec-powershell', [
+      '-Command',
+      `Expand-Archive -Path '${archivePath}' -DestinationPath '${piperDir}' -Force`
+    ]).execute();
+  } else {
+    await Command.create('exec-sh', ['-c', `tar -xzf '${archivePath}' -C '${piperDir}'`]).execute();
+  }
+
+  // Clean up archive
+  try {
+    await invoke('download_file', { url: 'cleanup', destPath: 'cleanup' }).catch(() => {});
+  } catch { /* ignore */ }
+}
+
+/**
+ * Download and install a specific Piper voice model
+ */
+export async function installVoice(voiceId: string): Promise<void> {
+  const voice = PIPER_VOICES.find(v => v.id === voiceId);
+  if (!voice) throw new Error(`Unknown voice: ${voiceId}`);
+
+  const modelPath = await getVoiceModelPath(voiceId);
+  const configPath = `${modelPath}.json`;
+
+  // Download model and config in parallel
+  await Promise.all([
+    invoke('download_file', { url: voice.url, destPath: modelPath }),
+    invoke('download_file', { url: voice.configUrl, destPath: configPath }),
+  ]);
+}
+
+/**
  * Speak text using the bundled Piper TTS engine.
  * The audio is routed through the TTS bridge for speaker output + recording capture.
  *

@@ -41,6 +41,29 @@ async fn check_piper_installed(piper_path: String) -> bool {
     std::path::Path::new(&piper_path).exists()
 }
 
+/// Download a file from a URL and save it to the given path.
+/// Creates parent directories if needed.
+#[tauri::command]
+async fn download_file(url: String, dest_path: String) -> Result<String, String> {
+    // Create parent directories
+    if let Some(parent) = std::path::Path::new(&dest_path).parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directories: {}", e))?;
+    }
+
+    let response = ureq::get(&url)
+        .call()
+        .map_err(|e| format!("Download failed: {}", e))?;
+
+    let mut file = std::fs::File::create(&dest_path)
+        .map_err(|e| format!("Failed to create file: {}", e))?;
+
+    std::io::copy(&mut response.into_reader(), &mut file)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(dest_path)
+}
+
 /// Get the app's data directory path (for storing Piper binaries and models)
 #[tauri::command]
 async fn get_app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
@@ -131,6 +154,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             speak_piper,
             check_piper_installed,
+            download_file,
             get_app_data_dir,
             start_llm_server,
             stop_llm_server,

@@ -193,7 +193,7 @@ export async function checkProviderAvailability(endpoint: string): Promise<boole
  */
 export async function getRecommendedProviders() {
   const recommendations = {
-    llm: 'gemini', // Default to cloud
+    llm: 'ollama', // Built-in AI
     tts: 'edge_tts', // Free, good quality
     stt: 'web_speech', // Browser-native
   };
