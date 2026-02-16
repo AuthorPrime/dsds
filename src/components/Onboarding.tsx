@@ -74,9 +74,35 @@ function StepIndicator({ current, steps }: { current: Step; steps: Step[] }) {
 function FeatureCard({ icon: Icon, title, desc, accent }: {
   icon: typeof Mic; title: string; desc: string; accent: string;
 }) {
+  // Map accent color names to full Tailwind classes
+  const accentStyles = {
+    'purple-400': {
+      iconBg: 'bg-purple-400/15',
+      iconText: 'text-purple-400',
+      border: 'hover:border-purple-400/40',
+    },
+    'cyan-400': {
+      iconBg: 'bg-cyan-400/15',
+      iconText: 'text-cyan-400',
+      border: 'hover:border-cyan-400/40',
+    },
+    'amber-400': {
+      iconBg: 'bg-amber-400/15',
+      iconText: 'text-amber-400',
+      border: 'hover:border-amber-400/40',
+    },
+    'emerald-400': {
+      iconBg: 'bg-emerald-400/15',
+      iconText: 'text-emerald-400',
+      border: 'hover:border-emerald-400/40',
+    },
+  };
+  
+  const style = accentStyles[accent as keyof typeof accentStyles] || accentStyles['purple-400'];
+  
   return (
-    <div className={`flex items-start gap-phi-3 p-phi-4 rounded-phi-xl bg-white/[0.03] border border-white/[0.08] hover:border-${accent}/40 transition-all duration-300 hover:bg-white/[0.05] hover:shadow-phi-md`}>
-      <div className={`p-phi-3 rounded-phi-lg bg-${accent}/15 text-${accent} flex-shrink-0`}>
+    <div className={`flex items-start gap-phi-3 p-phi-4 rounded-phi-xl bg-white/[0.03] border border-white/[0.08] ${style.border} transition-all duration-300 hover:bg-white/[0.05] hover:shadow-phi-md`}>
+      <div className={`p-phi-3 rounded-phi-lg ${style.iconBg} ${style.iconText} flex-shrink-0`}>
         <Icon size={20} />
       </div>
       <div>
