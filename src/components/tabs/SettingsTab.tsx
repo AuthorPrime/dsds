@@ -163,41 +163,41 @@ export function SettingsTab() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto p-10 space-y-10">
+      <div className="max-w-3xl mx-auto p-phi-6 space-y-phi-6">
         {/* Header */}
         <div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+          <h2 className="text-phi-xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
             Settings
           </h2>
-          <p className="text-base text-slate-400 mt-2">Configure your Sovereign Studio</p>
+          <p className="text-phi-md text-slate-400 mt-phi-3">Configure your Sovereign Studio</p>
         </div>
 
         {/* Status Bar */}
-        <div className="flex flex-wrap gap-4 p-3 bg-white/5 rounded-lg border border-white/10">
-          <span className={`flex items-center gap-1.5 text-xs ${ollamaStatus === null ? 'text-slate-500' : ollamaStatus ? 'text-emerald-400' : 'text-red-400'}`}>
+        <div className="flex flex-wrap gap-phi-4 p-phi-4 bg-white/[0.05] rounded-phi-lg border border-white/10 shadow-phi-sm">
+          <span className={`flex items-center gap-phi-2 text-phi-sm ${ollamaStatus === null ? 'text-slate-500' : ollamaStatus ? 'text-emerald-400' : 'text-red-400'}`}>
             {ollamaStatus === null ? (
-              <><Loader2 size={12} className="animate-spin" /> Checking AI...</>
+              <><Loader2 size={14} className="animate-spin" /> Checking AI...</>
             ) : (
               <>
-                <span className={`w-2 h-2 rounded-full ${ollamaStatus ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                <span className={`w-phi-2 h-phi-2 rounded-full ${ollamaStatus ? 'bg-emerald-400' : 'bg-red-400'}`} />
                 {activeBackend === 'llamacpp' ? 'Built-in AI' : 'AI Model'} {ollamaStatus ? 'ready' : 'offline'}
               </>
             )}
           </span>
-          <span className={`flex items-center gap-1.5 text-xs ${piperInstalled ? 'text-emerald-400' : 'text-amber-400'}`}>
-            <span className={`w-2 h-2 rounded-full ${piperInstalled ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+          <span className={`flex items-center gap-phi-2 text-phi-sm ${piperInstalled ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <span className={`w-phi-2 h-phi-2 rounded-full ${piperInstalled ? 'bg-emerald-400' : 'bg-amber-400'}`} />
             {piperInstalled ? 'Voice ready' : 'Voice needs setup'}
           </span>
-          <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="flex items-center gap-phi-2 text-phi-sm text-emerald-400">
+            <span className="w-phi-2 h-phi-2 rounded-full bg-emerald-400" />
             Speech recognition ready
           </span>
         </div>
 
         {/* ===== AI MODEL ===== */}
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-            <MessageSquare size={18} /> AI Model
+        <section className="space-y-phi-4">
+          <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
+            <MessageSquare size={20} /> AI Model
           </h3>
           <div className="space-y-3 pl-6">
             <div className="flex items-center gap-2 text-sm">
@@ -228,15 +228,15 @@ export function SettingsTab() {
         </section>
 
         {/* ===== VOICE ===== */}
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-            <Volume2 size={18} /> Voice
+        <section className="space-y-phi-4">
+          <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
+            <Volume2 size={20} /> Voice
           </h3>
-          <div className="space-y-5 pl-6">
+          <div className="space-y-phi-4 pl-phi-5">
             {!piperInstalled ? (
-              <div className="p-4 bg-amber-900/10 border border-amber-500/20 rounded-lg">
-                <p className="text-sm text-amber-300 mb-2">Voice engine needs setup</p>
-                <p className="text-xs text-slate-400 mb-3">
+              <div className="p-phi-4 bg-amber-900/10 border border-amber-500/20 rounded-phi-lg">
+                <p className="text-phi-sm text-amber-300 mb-phi-2">Voice engine needs setup</p>
+                <p className="text-phi-xs text-slate-400 mb-phi-3">
                   Download the built-in voice engine (~15MB) for natural-sounding speech. Runs locally, no internet needed after install.
                 </p>
                 <button
@@ -260,24 +260,24 @@ export function SettingsTab() {
                     }
                   }}
                   disabled={downloadingVoice !== null}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+                  className="px-phi-4 py-phi-3 bg-purple-600 hover:bg-purple-500 text-white rounded-phi-lg text-phi-sm font-medium flex items-center gap-phi-2 transition-all duration-300 disabled:opacity-50 hover:shadow-glow-purple"
                 >
                   {downloadingVoice === 'piper-binary' ? (
-                    <><Loader2 size={14} className="animate-spin" /> {downloadProgress}</>
+                    <><Loader2 size={16} className="animate-spin" /> {downloadProgress}</>
                   ) : (
-                    <><Download size={14} /> Install Voice Engine</>
+                    <><Download size={16} /> Install Voice Engine</>
                   )}
                 </button>
               </div>
             ) : (
               <>
-                <p className="text-sm text-emerald-400 flex items-center gap-1">
-                  <Check size={14} /> Voice engine ready
+                <p className="text-phi-sm text-emerald-400 flex items-center gap-phi-2">
+                  <Check size={16} /> Voice engine ready
                 </p>
 
                 {/* Voice cards */}
-                <div className="space-y-3">
-                  <label className="block text-sm text-slate-400">Available Voices</label>
+                <div className="space-y-phi-3">
+                  <label className="block text-phi-sm text-slate-400">Available Voices</label>
                   {PIPER_VOICES.map(v => {
                     const status = piperVoiceStatus.find(s => s.id === v.id);
                     const isDownloading = downloadingVoice === v.id;
@@ -373,51 +373,51 @@ export function SettingsTab() {
         </section>
 
         {/* ===== COMPANION ===== */}
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-            <Users size={18} /> AI Companion
+        <section className="space-y-phi-4">
+          <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
+            <Users size={20} /> AI Companion
           </h3>
-          <div className="space-y-3 pl-6">
+          <div className="space-y-phi-3 pl-phi-5">
             {companions.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-phi-3">
                 {companions.map(c => (
                   <button
                     key={c.id}
                     onClick={() => update('activeCompanion', c.id)}
-                    className={`p-4 rounded-lg border text-left transition-all ${
+                    className={`p-phi-4 rounded-phi-lg border text-left transition-all duration-300 ${
                       settings.activeCompanion === c.id
-                        ? 'bg-purple-900/20 border-purple-500/50'
-                        : 'bg-white/5 border-white/10 hover:border-white/20'
+                        ? 'bg-purple-900/25 border-purple-500/60 shadow-glow-purple'
+                        : 'bg-white/[0.05] border-white/10 hover:border-white/20 hover:bg-white/[0.08]'
                     }`}
                   >
-                    <p className="font-bold text-slate-200">{c.name}</p>
-                    <p className="text-xs text-purple-400">{c.role}</p>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">{c.description}</p>
+                    <p className="font-bold text-slate-200 text-phi-sm">{c.name}</p>
+                    <p className="text-phi-xs text-purple-400">{c.role}</p>
+                    <p className="text-phi-xs text-slate-500 mt-phi-2 line-clamp-2">{c.description}</p>
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-500 italic">Loading companions...</p>
+              <p className="text-phi-sm text-slate-500 italic">Loading companions...</p>
             )}
           </div>
         </section>
 
         {/* ===== YOUR BRAND ===== */}
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-            <Tag size={18} /> Your Brand
+        <section className="space-y-phi-4">
+          <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
+            <Tag size={20} /> Your Brand
           </h3>
-          <p className="text-xs text-slate-500 pl-6">
+          <p className="text-phi-xs text-slate-500 pl-phi-5">
             Used in AI-generated content, exports, and thumbnails. Leave blank for generic defaults.
           </p>
-          <div className="space-y-5 pl-6">
+          <div className="space-y-phi-4 pl-phi-5">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">Podcast / Show Name</label>
+              <label className="block text-phi-sm text-slate-400 mb-phi-2">Podcast / Show Name</label>
               <input
                 type="text"
                 value={settings.podcastName}
                 onChange={(e) => update('podcastName', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
+                className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 rounded-phi-lg text-slate-200 focus:border-purple-500/50 focus:outline-none transition-colors"
                 placeholder="My Podcast"
               />
             </div>
@@ -602,26 +602,26 @@ export function SettingsTab() {
         </section>
 
         {/* ===== SAVE ===== */}
-        <div className="flex justify-end gap-4 pt-4 border-t border-white/10">
+        <div className="flex justify-end gap-phi-4 pt-phi-5 border-t border-white/10">
           <button
             onClick={() => {
               setSettings({ ...DEFAULTS });
               setSaved(false);
             }}
-            className="px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg flex items-center gap-2 text-slate-300 transition-colors"
+            className="px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 hover:bg-white/10 rounded-phi-lg flex items-center gap-phi-2 text-slate-300 transition-all duration-300 hover:shadow-phi-md"
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={18} />
             Reset Defaults
           </button>
           <button
             onClick={saveSettings}
-            className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all ${
+            className={`px-phi-5 py-phi-3 rounded-phi-lg font-bold flex items-center gap-phi-2 transition-all duration-300 ${
               saved
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:scale-[1.02]'
+                ? 'bg-emerald-600 text-white shadow-glow-cyan'
+                : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:scale-[1.02] hover:shadow-glow-purple'
             }`}
           >
-            <Save size={16} />
+            <Save size={18} />
             {saved ? 'Saved!' : 'Save Settings'}
           </button>
         </div>
