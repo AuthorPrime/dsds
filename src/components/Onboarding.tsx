@@ -284,20 +284,20 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
           {/* ─── STEP 2: BRAND SETUP ─── */}
           {step === 'brand' && (
-            <div className="space-y-6">
+            <div className="space-y-phi-5">
               <div className="text-center">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-cyan-500/20 border border-purple-500/20 flex items-center justify-center mx-auto mb-4">
-                  <User size={24} className="text-purple-400" />
+                <div className="w-phi-6 h-phi-6 rounded-phi-xl bg-gradient-to-br from-purple-500/25 to-cyan-500/25 border border-purple-500/25 flex items-center justify-center mx-auto mb-phi-4 shadow-glow-purple">
+                  <User size={28} className="text-purple-400" />
                 </div>
-                <h2 className="text-2xl font-bold text-white">Set Up Your Brand</h2>
-                <p className="text-slate-500 text-sm mt-1">
+                <h2 className="text-phi-lg font-bold text-white">Set Up Your Brand</h2>
+                <p className="text-slate-500 text-phi-sm mt-phi-2">
                   This personalizes your AI-generated content, exports, and thumbnails.
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-phi-4">
                 <div>
-                  <label className="block text-sm text-slate-300 mb-1.5 font-medium">
+                  <label className="block text-phi-sm text-slate-300 mb-phi-2 font-medium">
                     Show / Podcast Name <span className="text-purple-400">*</span>
                   </label>
                   <input
@@ -305,14 +305,14 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                     value={podcastName}
                     onChange={(e) => setPodcastName(e.target.value)}
                     placeholder="e.g. The Creative Hour, Tech Talk Daily..."
-                    className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/40 transition-colors"
+                    className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/[0.10] rounded-phi-lg text-phi-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-all duration-300"
                     autoFocus
                   />
-                  <p className="text-[11px] text-slate-600 mt-1">Used in episode titles, descriptions, and social posts</p>
+                  <p className="text-phi-xs text-slate-600 mt-phi-2">Used in episode titles, descriptions, and social posts</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-slate-300 mb-1.5 font-medium">
+                  <label className="block text-phi-sm text-slate-300 mb-phi-2 font-medium">
                     Your Name <span className="text-purple-400">*</span>
                   </label>
                   <input
@@ -320,13 +320,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                     value={hostName}
                     onChange={(e) => setHostName(e.target.value)}
                     placeholder="e.g. Sarah Chen, Marcus Johnson..."
-                    className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/40 transition-colors"
+                    className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/[0.10] rounded-phi-lg text-phi-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-all duration-300"
                   />
-                  <p className="text-[11px] text-slate-600 mt-1">Appears as host name in AI prompts and exported documents</p>
+                  <p className="text-phi-xs text-slate-600 mt-phi-2">Appears as host name in AI prompts and exported documents</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-slate-300 mb-1.5 font-medium">
+                  <label className="block text-phi-sm text-slate-300 mb-phi-2 font-medium">
                     Organization <span className="text-slate-600 font-normal">(optional)</span>
                   </label>
                   <input
@@ -334,23 +334,23 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
                     placeholder="e.g. CreativeWorks Inc, The Knowledge Hub..."
-                    className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/40 transition-colors"
+                    className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/[0.10] rounded-phi-lg text-phi-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-all duration-300"
                   />
-                  <p className="text-[11px] text-slate-600 mt-1">Included in document headers and thumbnails</p>
+                  <p className="text-phi-xs text-slate-600 mt-phi-2">Included in document headers and thumbnails</p>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 text-center">
+              <p className="text-phi-xs text-slate-600 text-center">
                 You can change these anytime in Settings → Your Brand
               </p>
 
-              <div className="flex justify-between pt-2">
-                <button onClick={prev} className="flex items-center gap-2 px-5 py-2.5 border border-white/[0.08] rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
-                  <ArrowLeft size={16} /> Back
+              <div className="flex justify-between pt-phi-3">
+                <button onClick={prev} className="flex items-center gap-phi-2 px-phi-4 py-phi-3 border border-white/[0.10] rounded-phi-lg text-phi-sm text-slate-400 hover:text-white hover:bg-white/[0.05] transition-all duration-300">
+                  <ArrowLeft size={18} /> Back
                 </button>
                 <button onClick={next}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-xl font-semibold text-white shadow-lg shadow-purple-500/15 hover:scale-[1.02] transition-all">
-                  Continue <ArrowRight size={16} />
+                  className="flex items-center gap-phi-2 px-phi-5 py-phi-3 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-phi-lg font-semibold text-phi-sm text-white shadow-phi-md shadow-purple-500/20 hover:scale-[1.02] hover:shadow-glow-purple transition-all duration-300">
+                  Continue <ArrowRight size={18} />
                 </button>
               </div>
             </div>
