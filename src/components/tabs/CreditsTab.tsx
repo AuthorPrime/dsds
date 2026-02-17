@@ -96,19 +96,39 @@ interface LinkCardProps {
   title: string;
   description: string;
   url: string;
-  accent: string;
+  accent: 'purple' | 'cyan' | 'emerald' | 'amber';
 }
 
+const accentStyles = {
+  purple: {
+    card: 'hover:border-purple-400/30',
+    icon: 'bg-purple-400/10 text-purple-400',
+  },
+  cyan: {
+    card: 'hover:border-cyan-400/30',
+    icon: 'bg-cyan-400/10 text-cyan-400',
+  },
+  emerald: {
+    card: 'hover:border-emerald-400/30',
+    icon: 'bg-emerald-400/10 text-emerald-400',
+  },
+  amber: {
+    card: 'hover:border-amber-400/30',
+    icon: 'bg-amber-400/10 text-amber-400',
+  },
+};
+
 function LinkCard({ icon, title, description, url, accent }: LinkCardProps) {
+  const styles = accentStyles[accent];
   return (
     <a
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`group block p-4 bg-gray-900/40 border border-white/5 rounded-xl hover:border-${accent}/30 hover:bg-white/[0.03] transition-all duration-300`}
+      className={`group block p-4 bg-gray-900/40 border border-white/5 rounded-xl ${styles.card} hover:bg-white/[0.03] transition-all duration-300`}
     >
       <div className="flex items-start gap-3">
-        <div className={`p-2 rounded-lg bg-${accent}/10 text-${accent} flex-shrink-0`}>
+        <div className={`p-2 rounded-lg ${styles.icon} flex-shrink-0`}>
           {icon}
         </div>
         <div className="flex-1 min-w-0">
@@ -218,28 +238,28 @@ export default function CreditsTab() {
             title="Digital Sovereign Society"
             description="Philosophy, writings, and the movement for digital self-ownership"
             url="https://digitalsovereign.org"
-            accent="purple-400"
+            accent="purple"
           />
           <LinkCard
             icon={<Cpu size={18} />}
             title="FractalNode.ai"
             description="AI research lab — dual-AI systems, autonomous agents, and open tools"
             url="https://fractalnode.ai"
-            accent="cyan-400"
+            accent="cyan"
           />
           <LinkCard
             icon={<BookOpen size={18} />}
             title="Setup Guide: Ollama"
             description="Install and configure Ollama for local AI — models, GPU setup, and optimization"
             url="https://fractalnode.ai/guides/ollama-setup"
-            accent="emerald-400"
+            accent="emerald"
           />
           <LinkCard
             icon={<Sparkles size={18} />}
             title="Getting Started with DSDS"
             description="First-run walkthrough — output folders, API keys, companion configuration"
             url="https://fractalnode.ai/guides/sovereign-studio"
-            accent="amber-400"
+            accent="amber"
           />
         </div>
       </div>
