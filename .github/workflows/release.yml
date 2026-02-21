@@ -17,11 +17,11 @@ jobs:
         include:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-          - platform: ubuntu-22.04
+          - platform: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
           - platform: macos-latest
             target: aarch64-apple-darwin
-          - platform: macos-13
+          - platform: macos-14
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.platform }}
     steps:
@@ -33,13 +33,35 @@ jobs:
         with:
           node-version: 20
       - name: Linux deps
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev libgtk-3-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
       - run: npm ci
-      - run: cargo install tauri-cli
-      - run: cargo tauri build --target ${{ matrix.target }}
+      - run: npm install -g @tauri-apps/cli
+      - name: Fetch Piper TTS resources
+        run: |
+          if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
+            PLAT="windows"
+          elif [[ "${{ matrix.platform }}" == "ubuntu-24.04" ]]; then
+            PLAT="linux"
+          else
+            PLAT="macos"
+          fi
+          bash scripts/fetch-piper-resources.sh --platform "$PLAT"
+        shell: bash
+      - name: Fetch LLM resources
+        run: |
+          if [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
+            PLAT="windows"
+          elif [[ "${{ matrix.platform }}" == "ubuntu-24.04" ]]; then
+            PLAT="linux"
+          else
+            PLAT="macos"
+          fi
+          bash scripts/fetch-llm-resources.sh --platform "$PLAT"
+        shell: bash
+      - run: npx tauri build --target ${{ matrix.target }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ''
       - uses: actions/upload-artifact@v4
