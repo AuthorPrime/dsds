@@ -13,6 +13,10 @@ export interface AppSettings {
   activeCompanion: string;
   geminiApiKey: string;   // kept for backward compat with saved settings
   anthropicApiKey: string; // kept for backward compat with saved settings
+  // Cloud AI — OpenAI-compatible API endpoint
+  llmApiEndpoint: string;
+  llmApiKey: string;
+  llmApiModel: string;
   silenceThreshold: number;
   autoTranscribe: boolean;
   localModelPath: string;
@@ -42,6 +46,9 @@ export const DEFAULTS: AppSettings = {
   activeCompanion: 'aletheia',
   geminiApiKey: '',
   anthropicApiKey: '',
+  llmApiEndpoint: '',
+  llmApiKey: '',
+  llmApiModel: '',
   silenceThreshold: 2000,
   autoTranscribe: false,
   localModelPath: isWindows ? 'C:\\Users\\Public\\.ollama\\models' : '~/.ollama/models',

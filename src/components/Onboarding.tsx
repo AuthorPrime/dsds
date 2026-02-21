@@ -464,9 +464,27 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 </p>
               )}
 
-              <p className="text-xs text-slate-600 text-center">
-                More voices available in Settings after setup.
-              </p>
+              <div className="flex items-center justify-center gap-phi-3">
+                <p className="text-xs text-slate-600">
+                  More voices available in Settings after setup.
+                </p>
+                <button
+                  onClick={async () => {
+                    const engineOk = await isPiperInstalled();
+                    setPiperReady(engineOk);
+                    if (engineOk) {
+                      const installed = new Set<string>();
+                      for (const v of PIPER_VOICES) {
+                        if (await isVoiceInstalled(v.id)) installed.add(v.id);
+                      }
+                      setInstalledVoices(installed);
+                    }
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-300 underline transition-colors"
+                >
+                  Detect installed
+                </button>
+              </div>
 
               <div className="flex justify-between pt-2">
                 <button onClick={() => { stopSpeaking(); prev(); }} className="flex items-center gap-2 px-5 py-2.5 border border-white/[0.08] rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/[0.04] transition-all">
@@ -480,8 +498,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                     </button>
                   )}
                   <button onClick={() => { stopSpeaking(); next(); }}
-                    disabled={installedVoices.size === 0}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-xl font-semibold text-white shadow-lg shadow-purple-500/15 hover:scale-[1.02] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 to-cyan-600 rounded-xl font-semibold text-white shadow-lg shadow-purple-500/15 hover:scale-[1.02] transition-all">
                     Continue <ArrowRight size={16} />
                   </button>
                 </div>

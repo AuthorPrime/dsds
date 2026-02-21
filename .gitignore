@@ -77,3 +77,18 @@ ai/models/**
 *.dll
 *.so
 *.dylib
+
+# Bundled Piper TTS resources (large binaries, fetched by CI)
+# Ignore everything inside piper/ except .gitkeep placeholders
+src-tauri/resources/piper/*
+!src-tauri/resources/piper/.gitkeep
+!src-tauri/resources/piper/voices
+src-tauri/resources/piper/voices/*
+!src-tauri/resources/piper/voices/.gitkeep
+
+# Bundled LLM resources (large binaries, fetched by CI)
+src-tauri/resources/llamacpp/*
+!src-tauri/resources/llamacpp/.gitkeep
+!src-tauri/resources/llamacpp/models
+src-tauri/resources/llamacpp/models/*
+!src-tauri/resources/llamacpp/models/.gitkeep

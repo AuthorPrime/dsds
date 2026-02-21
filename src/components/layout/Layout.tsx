@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { Mic, BookOpen, Settings, Heart, Sparkles, Command } from 'lucide-react';
 import { APP_BRAND } from '../../branding';
+import { isPiperInstalled, isVoiceInstalled } from '../../services/piperService';
+import { eventBus, EVENTS } from '../../services/eventBus';
+import { getSettings } from '../../hooks/useSettings';
 
 export type TabId = 'studio' | 'workshop' | 'settings' | 'credits';
 
@@ -45,6 +48,29 @@ const SHORTCUT_MAP: Record<string, TabId> = {
 export function Layout({ tabs }: LayoutProps) {
   const [activeTab, setActiveTab] = useState<TabId>('studio');
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [ttsEngine, setTtsEngine] = useState<'checking' | 'piper' | 'web'>('checking');
+
+  // Check TTS engine status
+  const checkTtsStatus = useCallback(async () => {
+    try {
+      const hasPiper = await isPiperInstalled();
+      if (hasPiper) {
+        const voice = getSettings().ttsVoice || 'en_US-amy-medium';
+        const hasVoice = await isVoiceInstalled(voice);
+        setTtsEngine(hasVoice ? 'piper' : 'web');
+      } else {
+        setTtsEngine('web');
+      }
+    } catch {
+      setTtsEngine('web');
+    }
+  }, []);
+
+  // Check on mount + listen for voice install events
+  useEffect(() => {
+    checkTtsStatus();
+    return eventBus.on(EVENTS.TTS_ENGINE_CHANGED, checkTtsStatus);
+  }, [checkTtsStatus]);
 
   // Global keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -95,7 +121,7 @@ export function Layout({ tabs }: LayoutProps) {
 
       {/* ─── Tab Navigation ─── */}
       <div className="bg-gray-900/50 border-b border-white/[0.08] flex-shrink-0">
-        <div className="flex justify-center px-phi-4 gap-phi-1">
+        <div className="flex justify-center px-phi-4 gap-phi-6">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -176,9 +202,17 @@ export function Layout({ tabs }: LayoutProps) {
 
       {/* ─── Status Bar ─── */}
       <div className="h-phi-4 bg-black/50 border-t border-white/[0.06] flex items-center justify-between px-phi-5 flex-shrink-0">
-        <span className="text-phi-xs text-slate-600 font-medium">
-          Sovereign Studio
-        </span>
+        <div className="flex items-center gap-phi-4">
+          <span className="text-phi-xs text-slate-600 font-medium">
+            Sovereign Studio
+          </span>
+          {ttsEngine !== 'checking' && (
+            <span className={`flex items-center gap-1.5 text-phi-xs ${ttsEngine === 'piper' ? 'text-emerald-500' : 'text-amber-500'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${ttsEngine === 'piper' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              {ttsEngine === 'piper' ? 'Piper' : 'Web Voice'}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-phi-4">
           <button onClick={() => setShowShortcuts(true)}
             className="text-phi-xs text-slate-700 hover:text-slate-500 transition-colors flex items-center gap-phi-2">

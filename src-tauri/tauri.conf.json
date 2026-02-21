@@ -33,6 +33,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": ["resources/piper", "resources/llamacpp"],
     "publisher": "Digital Sovereign Society",
     "homepage": "https://digitalsovereign.org/support",
     "license": "MIT",

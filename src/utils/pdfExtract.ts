@@ -8,7 +8,7 @@
 
 let pdfjsModule: typeof import('pdfjs-dist') | null = null;
 
-async function getPdfjs() {
+export async function getPdfjs() {
   if (!pdfjsModule) {
     pdfjsModule = await import('pdfjs-dist');
     pdfjsModule.GlobalWorkerOptions.workerSrc = new URL(

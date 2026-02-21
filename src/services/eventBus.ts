@@ -37,4 +37,6 @@ export const EVENTS = {
   SESSION_TRANSCRIPT_READY: 'session:transcript-ready',
   /** Fired when a recording file is saved. Payload: { filename, duration } */
   RECORDING_SAVED: 'recording:saved',
+  /** Fired when voice engine status changes (install/uninstall). Payload: void */
+  TTS_ENGINE_CHANGED: 'tts:engine-changed',
 } as const;

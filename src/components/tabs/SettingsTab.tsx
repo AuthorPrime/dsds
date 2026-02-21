@@ -8,14 +8,15 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Volume2, Cpu, FolderOpen, Save, RefreshCw, Sparkles,
   Mic, MessageSquare, Users, Check, AlertCircle, Loader2, FolderPlus, Tag,
-  ChevronDown, ChevronUp, Download,
+  ChevronDown, ChevronUp, Download, Cloud, Eye, EyeOff,
 } from 'lucide-react';
 import type { CompanionConfig } from '../../types';
 import { FilePickerButton } from '../shared/FilePickerButton';
 import { ensureDirectories, getOutputStructure } from '../../services/fileManager';
 import { loadCompanions } from '../../utils/aiProviders';
-import { isOllamaAvailable, listModels as listOllamaModels, getActiveBackend } from '../../services/ollama';
+import { isOllamaAvailable, listModels as listOllamaModels, getActiveBackend, resetBackendDetection } from '../../services/ollama';
 import { getPiperStatus, PIPER_VOICES } from '../../services/piperService';
+import { eventBus, EVENTS } from '../../services/eventBus';
 
 // --- Settings shape ---
 interface Settings {
@@ -33,6 +34,11 @@ interface Settings {
   // API Keys (kept for backward compat, hidden from UI)
   geminiApiKey: string;
   anthropicApiKey: string;
+
+  // Cloud AI
+  llmApiEndpoint: string;
+  llmApiKey: string;
+  llmApiModel: string;
 
   // Studio
   silenceThreshold: number;
@@ -61,6 +67,9 @@ const DEFAULTS: Settings = {
   activeCompanion: 'aletheia',
   geminiApiKey: '',
   anthropicApiKey: '',
+  llmApiEndpoint: '',
+  llmApiKey: '',
+  llmApiModel: '',
   silenceThreshold: 2000,
   autoTranscribe: false,
   localModelPath: isWindows ? 'C:\\Users\\Public\\.ollama\\models' : '~/.ollama/models',
@@ -114,6 +123,27 @@ export function SettingsTab() {
   const [piperVoiceStatus, setPiperVoiceStatus] = useState<{ id: string; name: string; installed: boolean; size: string }[]>([]);
   const [downloadingVoice, setDownloadingVoice] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<string>('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [recheckingVoice, setRecheckingVoice] = useState(false);
+
+  // Cloud AI
+  const [apiTestResult, setApiTestResult] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [apiTestMessage, setApiTestMessage] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  const recheckVoiceStatus = async () => {
+    setRecheckingVoice(true);
+    setVoiceError(null);
+    try {
+      const status = await getPiperStatus();
+      setPiperInstalled(status.installed);
+      setPiperVoiceStatus(status.voices);
+    } catch {
+      setVoiceError('Could not detect voice engine.');
+    } finally {
+      setRecheckingVoice(false);
+    }
+  };
 
   // Load companions, check AI backend, check Piper status
   useEffect(() => {
@@ -148,7 +178,10 @@ export function SettingsTab() {
 
   const saveSettings = useCallback(() => {
     try {
-      localStorage.setItem('dsds-settings', JSON.stringify(settings));
+      // Merge with existing data to preserve fields this component doesn't manage
+      // (hasCompletedOnboarding, totalSessions, totalEnhancements, etc.)
+      const existing = JSON.parse(localStorage.getItem('dsds-settings') || '{}');
+      localStorage.setItem('dsds-settings', JSON.stringify({ ...existing, ...settings }));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -180,7 +213,7 @@ export function SettingsTab() {
             ) : (
               <>
                 <span className={`w-phi-2 h-phi-2 rounded-full ${ollamaStatus ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                {activeBackend === 'llamacpp' ? 'Built-in AI' : 'AI Model'} {ollamaStatus ? 'ready' : 'offline'}
+                {activeBackend === 'api' ? 'Cloud AI' : activeBackend === 'llamacpp' ? 'Built-in AI' : 'AI Model'} {ollamaStatus ? 'ready' : 'offline'}
               </>
             )}
           </span>
@@ -201,7 +234,9 @@ export function SettingsTab() {
           </h3>
           <div className="space-y-3 pl-6">
             <div className="flex items-center gap-2 text-sm">
-              {ollamaStatus && activeBackend === 'llamacpp' ? (
+              {ollamaStatus && activeBackend === 'api' ? (
+                <span className="text-emerald-400 flex items-center gap-1"><Check size={14} /> Cloud AI connected ({settings.llmApiModel || 'default model'})</span>
+              ) : ollamaStatus && activeBackend === 'llamacpp' ? (
                 <span className="text-emerald-400 flex items-center gap-1"><Check size={14} /> Built-in AI model active</span>
               ) : ollamaStatus ? (
                 <span className="text-emerald-400 flex items-center gap-1"><Check size={14} /> AI connected — {ollamaLiveModels.length} model(s) available</span>
@@ -227,11 +262,142 @@ export function SettingsTab() {
           </div>
         </section>
 
-        {/* ===== VOICE ===== */}
+        {/* ===== CLOUD AI ===== */}
         <section className="space-y-phi-4">
           <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
-            <Volume2 size={20} /> Voice
+            <Cloud size={20} /> Cloud AI
+            <span className="text-phi-xs text-slate-600 font-normal">(Optional)</span>
           </h3>
+          <p className="text-phi-xs text-slate-500 pl-phi-5">
+            Connect to any OpenAI-compatible API for more powerful AI.
+            Works with OpenAI, Anthropic, Groq, Together, LM Studio, and more.
+          </p>
+          <div className="space-y-phi-4 pl-phi-5">
+            <div>
+              <label className="block text-phi-sm text-slate-400 mb-phi-2">API Endpoint</label>
+              <input
+                type="text"
+                value={settings.llmApiEndpoint}
+                onChange={(e) => { update('llmApiEndpoint', e.target.value); setApiTestResult('idle'); }}
+                className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 rounded-phi-lg text-slate-200 focus:border-purple-500/50 focus:outline-none transition-colors font-mono text-phi-sm"
+                placeholder="https://api.openai.com/v1"
+              />
+            </div>
+            <div>
+              <label className="block text-phi-sm text-slate-400 mb-phi-2">API Key</label>
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={settings.llmApiKey}
+                  onChange={(e) => { update('llmApiKey', e.target.value); setApiTestResult('idle'); }}
+                  className="w-full px-phi-4 py-phi-3 pr-12 bg-white/[0.05] border border-white/10 rounded-phi-lg text-slate-200 focus:border-purple-500/50 focus:outline-none transition-colors font-mono text-phi-sm"
+                  placeholder="sk-..."
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-phi-sm text-slate-400 mb-phi-2">Model Name</label>
+              <input
+                type="text"
+                value={settings.llmApiModel}
+                onChange={(e) => { update('llmApiModel', e.target.value); setApiTestResult('idle'); }}
+                className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 rounded-phi-lg text-slate-200 focus:border-purple-500/50 focus:outline-none transition-colors font-mono text-phi-sm"
+                placeholder="gpt-4o-mini"
+              />
+              <p className="text-phi-xs text-slate-600 mt-1">The model ID your provider expects (e.g. gpt-4o-mini, claude-sonnet-4-5-20250929, llama-3.1-8b-instant)</p>
+            </div>
+
+            <div className="flex items-center gap-phi-3">
+              <button
+                onClick={async () => {
+                  if (!settings.llmApiEndpoint || !settings.llmApiKey) {
+                    setApiTestResult('error');
+                    setApiTestMessage('Enter an endpoint and API key first');
+                    return;
+                  }
+                  setApiTestResult('testing');
+                  try {
+                    const ep = settings.llmApiEndpoint.replace(/\/+$/, '');
+                    const res = await fetch(`${ep}/models`, {
+                      headers: { 'Authorization': `Bearer ${settings.llmApiKey}` },
+                      signal: AbortSignal.timeout(10000),
+                    });
+                    if (res.ok) {
+                      setApiTestResult('success');
+                      setApiTestMessage('Connected!');
+                      // Re-detect backend so the app picks up cloud AI
+                      resetBackendDetection();
+                      const ollamaOk = await isOllamaAvailable();
+                      setOllamaStatus(ollamaOk);
+                      setActiveBackend(getActiveBackend());
+                      if (ollamaOk) {
+                        const models = await listOllamaModels();
+                        setOllamaLiveModels(models);
+                      }
+                    } else {
+                      setApiTestResult('error');
+                      setApiTestMessage(`HTTP ${res.status} — check your endpoint and key`);
+                    }
+                  } catch (err) {
+                    setApiTestResult('error');
+                    setApiTestMessage(err instanceof Error ? err.message : 'Connection failed');
+                  }
+                }}
+                disabled={apiTestResult === 'testing'}
+                className="px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 hover:bg-white/10 rounded-phi-lg text-phi-sm text-slate-300 flex items-center gap-phi-2 transition-colors disabled:opacity-50"
+              >
+                {apiTestResult === 'testing' ? (
+                  <><Loader2 size={14} className="animate-spin" /> Testing...</>
+                ) : (
+                  <><RefreshCw size={14} /> Test Connection</>
+                )}
+              </button>
+
+              {apiTestResult === 'success' && (
+                <span className="text-phi-sm text-emerald-400 flex items-center gap-1">
+                  <Check size={14} /> {apiTestMessage}
+                </span>
+              )}
+              {apiTestResult === 'error' && (
+                <span className="text-phi-sm text-red-400 flex items-center gap-1">
+                  <AlertCircle size={14} /> {apiTestMessage}
+                </span>
+              )}
+            </div>
+
+            {settings.llmApiEndpoint && settings.llmApiKey && apiTestResult === 'success' && (
+              <p className="text-phi-xs text-emerald-400/70">
+                Cloud AI will be used for all AI features. Clear the endpoint to use local AI instead.
+              </p>
+            )}
+          </div>
+        </section>
+
+        {/* ===== VOICE ===== */}
+        <section className="space-y-phi-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
+              <Volume2 size={20} /> Voice
+            </h3>
+            <button
+              onClick={recheckVoiceStatus}
+              disabled={recheckingVoice}
+              className="px-phi-3 py-1.5 rounded-phi-md text-phi-xs text-slate-400 border border-white/10 hover:bg-white/[0.04] hover:text-slate-300 transition-colors disabled:opacity-50 flex items-center gap-phi-2"
+            >
+              {recheckingVoice ? (
+                <><Loader2 size={12} className="animate-spin" /> Checking...</>
+              ) : (
+                <><RefreshCw size={12} /> Detect Installed</>
+              )}
+            </button>
+          </div>
           <div className="space-y-phi-4 pl-phi-5">
             {!piperInstalled ? (
               <div className="p-phi-4 bg-amber-900/10 border border-amber-500/20 rounded-phi-lg">
@@ -250,6 +416,7 @@ export function SettingsTab() {
                       setDownloadProgress('Voice engine installed!');
                       const status = await getPiperStatus();
                       setPiperVoiceStatus(status.voices);
+                      eventBus.emit(EVENTS.TTS_ENGINE_CHANGED, null);
                     } catch (err) {
                       setDownloadProgress(`Install failed: ${err}`);
                     } finally {
@@ -312,7 +479,7 @@ export function SettingsTab() {
                               <span className="px-3 py-1.5 rounded-lg text-xs text-purple-300 bg-purple-500/10 border border-purple-500/20">Active</span>
                             ) : (
                               <button
-                                onClick={() => update('ttsVoice', v.id)}
+                                onClick={() => { update('ttsVoice', v.id); eventBus.emit(EVENTS.TTS_ENGINE_CHANGED, null); }}
                                 className="px-3 py-1.5 rounded-lg text-xs bg-white/10 text-slate-300 border border-white/10 hover:bg-purple-500/20 hover:border-purple-500/30 hover:text-purple-300 transition-colors"
                               >
                                 Select
@@ -323,15 +490,21 @@ export function SettingsTab() {
                               onClick={async () => {
                                 setDownloadingVoice(v.id);
                                 setDownloadProgress(`Downloading ${v.name}...`);
+                                setVoiceError(null);
                                 try {
                                   const { installVoice } = await import('../../services/piperService');
                                   await installVoice(v.id);
                                   const newStatus = await getPiperStatus();
                                   setPiperVoiceStatus(newStatus.voices);
-                                  update('ttsVoice', v.id);
+                                  // Only set as active if download actually succeeded
+                                  const installed = newStatus.voices.find(s => s.id === v.id);
+                                  if (installed?.installed) {
+                                    update('ttsVoice', v.id);
+                                    eventBus.emit(EVENTS.TTS_ENGINE_CHANGED, null);
+                                  }
                                 } catch (err) {
-                                  console.error('Voice download failed:', err);
-                                  setDownloadProgress(`Failed: ${err}`);
+                                  const msg = err instanceof Error ? err.message : String(err);
+                                  setVoiceError(`Failed to download ${v.name}: ${msg}`);
                                 } finally {
                                   setDownloadingVoice(null);
                                   setDownloadProgress('');
@@ -352,6 +525,22 @@ export function SettingsTab() {
                     );
                   })}
                 </div>
+
+                {/* Voice error banner */}
+                {voiceError && (
+                  <div className="flex items-start gap-phi-3 p-phi-4 bg-red-900/10 border border-red-500/20 rounded-phi-lg">
+                    <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-phi-sm text-red-300">{voiceError}</p>
+                      <button
+                        onClick={recheckVoiceStatus}
+                        className="mt-phi-2 text-phi-xs text-red-400 hover:text-red-300 underline transition-colors"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

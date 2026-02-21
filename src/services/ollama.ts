@@ -1,21 +1,23 @@
 /**
  * Ollama Integration Service
- * Local AI inference for content generation, editing, and publishing.
+ * AI inference for content generation, editing, and publishing.
  *
- * Transparently supports two backends:
+ * Transparently supports three backends:
  *   - Ollama (NDJSON streaming via /api/chat)
  *   - Bundled llama-server (OpenAI SSE streaming via /v1/chat/completions)
+ *   - Cloud API (any OpenAI-compatible endpoint — OpenAI, Anthropic, Groq, etc.)
  *
  * The active backend is auto-detected on first connection. All downstream
  * code (useOllamaChat, high-level generators) works without changes.
  */
 
 import { getUserBranding } from '../branding';
+import { getSettings } from '../hooks/useSettings';
 
 const OLLAMA_ENDPOINT = 'http://localhost:11434';
 const LLAMACPP_ENDPOINT = 'http://127.0.0.1:11435';
 
-type BackendType = 'ollama' | 'llamacpp';
+type BackendType = 'ollama' | 'llamacpp' | 'api';
 
 let detectedBackend: BackendType | null = null;
 let detectedEndpoint: string | null = null;
@@ -49,6 +51,19 @@ export function getActiveBackend(): BackendType | null {
 }
 
 async function detectBackend(): Promise<{ endpoint: string; backend: BackendType } | null> {
+  // 0. Check if user has configured a cloud API endpoint (highest priority when set)
+  const settings = getSettings();
+  if (settings.llmApiEndpoint && settings.llmApiKey) {
+    try {
+      const ep = settings.llmApiEndpoint.replace(/\/+$/, ''); // strip trailing slash
+      const res = await fetch(`${ep}/models`, {
+        headers: { 'Authorization': `Bearer ${settings.llmApiKey}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) return { endpoint: ep, backend: 'api' };
+    } catch { /* cloud API not reachable, fall through to local */ }
+  }
+
   // 1. Try Ollama endpoints (returns "Ollama is running" on GET /)
   const ollamaEndpoints = [
     OLLAMA_ENDPOINT,
@@ -98,6 +113,13 @@ export async function isOllamaAvailable(): Promise<boolean> {
 export async function listModels(): Promise<string[]> {
   try {
     const ep = await getEndpoint();
+
+    if (detectedBackend === 'api') {
+      // Cloud API — return the user's configured model
+      const settings = getSettings();
+      return settings.llmApiModel ? [settings.llmApiModel] : ['default'];
+    }
+
     if (detectedBackend === 'llamacpp') {
       // llama-server /v1/models returns whatever model is loaded
       const res = await fetch(`${ep}/v1/models`, { signal: AbortSignal.timeout(3000) });
@@ -105,6 +127,7 @@ export async function listModels(): Promise<string[]> {
       const data = await res.json();
       return data.data?.map((m: { id: string }) => m.id) ?? ['bundled-model'];
     }
+
     // Ollama
     const res = await fetch(`${ep}/api/tags`);
     const data = await res.json();
@@ -121,20 +144,28 @@ export async function chat(
 ): Promise<string> {
   const ep = await getEndpoint();
 
-  if (detectedBackend === 'llamacpp') {
-    // OpenAI format (non-streaming)
+  if (detectedBackend === 'api' || detectedBackend === 'llamacpp') {
+    // OpenAI format (non-streaming) — works for both cloud API and bundled llama-server
+    const settings = getSettings();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (detectedBackend === 'api' && settings.llmApiKey) {
+      headers['Authorization'] = `Bearer ${settings.llmApiKey}`;
+    }
+    const requestModel = detectedBackend === 'api' ? (settings.llmApiModel || model) : undefined;
+
     const res = await fetch(`${ep}/v1/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       signal: AbortSignal.timeout(120000),
       body: JSON.stringify({
+        ...(requestModel ? { model: requestModel } : {}),
         messages,
         temperature: options?.temperature ?? 0.7,
         max_tokens: options?.maxTokens ?? 2048,
         stream: false,
       }),
     });
-    if (!res.ok) throw new Error(`LLM server error: ${res.status}`);
+    if (!res.ok) throw new Error(`${detectedBackend === 'api' ? 'Cloud AI' : 'LLM server'} error: ${res.status}`);
     const data = await res.json();
     return data.choices?.[0]?.message?.content ?? '';
   }
@@ -165,6 +196,15 @@ export async function* chatStream(
   messages: OllamaMessage[]
 ): AsyncGenerator<string> {
   const ep = await getEndpoint();
+
+  if (detectedBackend === 'api') {
+    const settings = getSettings();
+    yield* chatStreamOpenAI(ep, messages, {
+      apiKey: settings.llmApiKey,
+      model: settings.llmApiModel || model,
+    });
+    return;
+  }
 
   if (detectedBackend === 'llamacpp') {
     // OpenAI SSE streaming format
@@ -198,23 +238,30 @@ export async function* chatStream(
   }
 }
 
-/** OpenAI-compatible SSE streaming (used by bundled llama-server) */
+/** OpenAI-compatible SSE streaming (used by bundled llama-server and cloud API) */
 async function* chatStreamOpenAI(
   endpoint: string,
-  messages: OllamaMessage[]
+  messages: OllamaMessage[],
+  options?: { apiKey?: string; model?: string; temperature?: number; maxTokens?: number }
 ): AsyncGenerator<string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (options?.apiKey) {
+    headers['Authorization'] = `Bearer ${options.apiKey}`;
+  }
+
   const res = await fetch(`${endpoint}/v1/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
+      ...(options?.model ? { model: options.model } : {}),
       messages,
-      temperature: 0.7,
-      max_tokens: 2048,
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.maxTokens ?? 2048,
       stream: true,
     }),
   });
 
-  if (!res.ok) throw new Error(`LLM server error: ${res.status}`);
+  if (!res.ok) throw new Error(`${options?.apiKey ? 'Cloud AI' : 'LLM server'} error: ${res.status}`);
 
   const reader = res.body?.getReader();
   if (!reader) return;

@@ -70,6 +70,7 @@ export const PIPER_VOICES = [
 export type PiperVoiceId = typeof PIPER_VOICES[number]['id'];
 
 let cachedAppDataDir: string | null = null;
+let cachedResourceDir: string | undefined;
 
 /**
  * Get the app data directory (cached after first call)
@@ -82,6 +83,21 @@ async function getAppDataDir(): Promise<string> {
 }
 
 /**
+ * Get the app resource directory where bundled files live (cached).
+ * Returns null if resource dir is unavailable (e.g. dev mode).
+ */
+async function getResourceDir(): Promise<string | null> {
+  if (cachedResourceDir !== undefined) return cachedResourceDir || null;
+  try {
+    cachedResourceDir = await invoke<string>('get_resource_dir');
+    return cachedResourceDir;
+  } catch {
+    cachedResourceDir = '';
+    return null;
+  }
+}
+
+/**
  * Get the platform-specific Piper binary name
  */
 function getPiperBinaryName(): string {
@@ -91,20 +107,47 @@ function getPiperBinaryName(): string {
 }
 
 /**
- * Get the full path to the Piper binary
+ * Get the full path to the Piper binary.
+ * Checks bundled resources first, then falls back to app data (downloaded at runtime).
  */
 async function getPiperPath(): Promise<string> {
-  const dataDir = await getAppDataDir();
   const sep = navigator.platform.toLowerCase().includes('win') ? '\\' : '/';
-  return `${dataDir}${sep}${PIPER_SUBDIR}${sep}${getPiperBinaryName()}`;
+  const binaryName = getPiperBinaryName();
+
+  // Check bundled resources first (shipped with installer)
+  const resDir = await getResourceDir();
+  if (resDir) {
+    const bundledPath = `${resDir}${sep}piper${sep}${binaryName}`;
+    try {
+      const exists = await invoke<boolean>('check_piper_installed', { piperPath: bundledPath });
+      if (exists) return bundledPath;
+    } catch { /* bundled not available */ }
+  }
+
+  // Fall back to app data directory (downloaded at runtime)
+  const dataDir = await getAppDataDir();
+  return `${dataDir}${sep}${PIPER_SUBDIR}${sep}${binaryName}`;
 }
 
 /**
- * Get the full path to a voice model
+ * Get the full path to a voice model.
+ * Checks bundled resources first, then falls back to app data (downloaded at runtime).
  */
 async function getVoiceModelPath(voiceId: string): Promise<string> {
-  const dataDir = await getAppDataDir();
   const sep = navigator.platform.toLowerCase().includes('win') ? '\\' : '/';
+
+  // Check bundled resources first (shipped with installer)
+  const resDir = await getResourceDir();
+  if (resDir) {
+    const bundledPath = `${resDir}${sep}piper${sep}voices${sep}${voiceId}.onnx`;
+    try {
+      const exists = await invoke<boolean>('check_piper_installed', { piperPath: bundledPath });
+      if (exists) return bundledPath;
+    } catch { /* bundled not available */ }
+  }
+
+  // Fall back to app data directory (downloaded at runtime)
+  const dataDir = await getAppDataDir();
   return `${dataDir}${sep}${VOICES_SUBDIR}${sep}${voiceId}.onnx`;
 }
 
@@ -166,7 +209,9 @@ export function getPiperDownloadUrl(): string {
 }
 
 /**
- * Download and install the Piper binary for the current platform
+ * Download and install the Piper binary for the current platform.
+ * Downloads the platform-specific archive and extracts via Rust.
+ * Archive is cleaned up automatically after extraction.
  */
 export async function installPiper(): Promise<void> {
   const dataDir = await getAppDataDir();
@@ -180,22 +225,8 @@ export async function installPiper(): Promise<void> {
   // Download archive
   await invoke('download_file', { url: downloadUrl, destPath: archivePath });
 
-  // Extract — use shell plugin to run extraction
-  const { Command } = await import('@tauri-apps/plugin-shell');
-  if (isWin) {
-    // PowerShell Expand-Archive
-    await Command.create('exec-powershell', [
-      '-Command',
-      `Expand-Archive -Path '${archivePath}' -DestinationPath '${piperDir}' -Force`
-    ]).execute();
-  } else {
-    await Command.create('exec-sh', ['-c', `tar -xzf '${archivePath}' -C '${piperDir}'`]).execute();
-  }
-
-  // Clean up archive
-  try {
-    await invoke('download_file', { url: 'cleanup', destPath: 'cleanup' }).catch(() => {});
-  } catch { /* ignore */ }
+  // Extract via Rust — handles zip and tar.gz, cleans up archive after
+  await invoke('extract_archive', { archivePath, destDir: piperDir });
 }
 
 /**

@@ -21,6 +21,14 @@ const MODELS_SUBDIR = 'llamacpp/models';
 // Small models suitable for bundling (CPU-friendly)
 export const BUNDLED_MODELS = [
   {
+    id: 'tinyllama-1b',
+    name: 'TinyLlama 1.1B',
+    description: 'Bundled — works out of the box. Fast on any machine.',
+    size: '640 MB',
+    url: 'https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf',
+    recommended: true,
+  },
+  {
     id: 'smollm2-360m',
     name: 'SmolLM2 360M',
     description: 'Ultra-light, great for simple responses',
@@ -34,19 +42,12 @@ export const BUNDLED_MODELS = [
     description: 'Best quality for the size. Good for co-hosting.',
     size: '2.2 GB',
     url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf',
-    recommended: true,
-  },
-  {
-    id: 'tinyllama-1b',
-    name: 'TinyLlama 1.1B',
-    description: 'Tiny but capable. Fast responses on any machine.',
-    size: '640 MB',
-    url: 'https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf',
     recommended: false,
   },
 ] as const;
 
 let cachedDataDir: string | null = null;
+let cachedResourceDir: string | undefined;
 
 async function getDataDir(): Promise<string> {
   if (!cachedDataDir) {
@@ -55,20 +56,67 @@ async function getDataDir(): Promise<string> {
   return cachedDataDir;
 }
 
+/**
+ * Get the app resource directory where bundled files live (cached).
+ * Returns null if resource dir is unavailable (e.g. dev mode).
+ */
+async function getResourceDir(): Promise<string | null> {
+  if (cachedResourceDir !== undefined) return cachedResourceDir || null;
+  try {
+    cachedResourceDir = await invoke<string>('get_resource_dir');
+    return cachedResourceDir;
+  } catch {
+    cachedResourceDir = '';
+    return null;
+  }
+}
+
 function pathSep(): string {
   return navigator.platform.toLowerCase().includes('win') ? '\\' : '/';
 }
 
+/**
+ * Get the full path to the llama-server binary.
+ * Checks bundled resources first, then falls back to app data (downloaded at runtime).
+ */
 async function getServerPath(): Promise<string> {
-  const dataDir = await getDataDir();
   const sep = pathSep();
   const binary = navigator.platform.toLowerCase().includes('win') ? 'llama-server.exe' : 'llama-server';
+
+  // Check bundled resources first (shipped with installer)
+  const resDir = await getResourceDir();
+  if (resDir) {
+    const bundledPath = `${resDir}${sep}llamacpp${sep}${binary}`;
+    try {
+      const exists = await invoke<boolean>('check_piper_installed', { piperPath: bundledPath });
+      if (exists) return bundledPath;
+    } catch { /* bundled not available */ }
+  }
+
+  // Fall back to app data directory (downloaded at runtime)
+  const dataDir = await getDataDir();
   return `${dataDir}${sep}${LLAMACPP_SUBDIR}${sep}${binary}`;
 }
 
+/**
+ * Get the full path to a model file.
+ * Checks bundled resources first, then falls back to app data (downloaded at runtime).
+ */
 async function getModelPath(modelId: string): Promise<string> {
-  const dataDir = await getDataDir();
   const sep = pathSep();
+
+  // Check bundled resources first (shipped with installer)
+  const resDir = await getResourceDir();
+  if (resDir) {
+    const bundledPath = `${resDir}${sep}llamacpp${sep}models${sep}${modelId}.gguf`;
+    try {
+      const exists = await invoke<boolean>('check_piper_installed', { piperPath: bundledPath });
+      if (exists) return bundledPath;
+    } catch { /* bundled not available */ }
+  }
+
+  // Fall back to app data directory (downloaded at runtime)
+  const dataDir = await getDataDir();
   return `${dataDir}${sep}${MODELS_SUBDIR}${sep}${modelId}.gguf`;
 }
 

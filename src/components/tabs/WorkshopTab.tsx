@@ -21,6 +21,7 @@ import { saveFile, saveBlob } from '../../services/fileManager';
 import { renderMarkdown } from '../../utils/markdown';
 import { eventBus, EVENTS } from '../../services/eventBus';
 import { extractTextFromPdf } from '../../utils/pdfExtract';
+import { PdfViewer } from '../PdfViewer';
 
 // ─── Types ──────────────────────────────────────────────────────────
 type SubTab = 'view' | 'write' | 'transcribe';
@@ -174,7 +175,6 @@ export function WorkshopTab() {
   const [zoom, setZoom] = useState(100);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // ─── WRITE state ───────────────────────────────────────────────
   const [doc, setDoc] = useState<DocumentState>({ title: '', content: '', type: 'article', style: 'editorial', enhanced: '', isProcessing: false });
@@ -422,13 +422,8 @@ export function WorkshopTab() {
         </div>
       );
     }
-    if (selectedFile.docType === 'pdf') {
-      return (
-        <div className="absolute inset-0">
-          <iframe ref={iframeRef} src={selectedFile.objectUrl} className="border-0" title={selectedFile.name}
-            style={{ width: '100%', height: '100%' }} />
-        </div>
-      );
+    if (selectedFile.docType === 'pdf' && selectedFile.objectUrl) {
+      return <PdfViewer src={selectedFile.objectUrl} zoom={zoom} />;
     }
     if (selectedFile.docType === 'md') {
       return <div className={docPageClass} style={docPageStyle({ padding: '2.5rem 3rem' })}><div className="prose prose-lg max-w-none leading-relaxed" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedFile.content || '', 'light') }} /></div>;
@@ -525,18 +520,11 @@ export function WorkshopTab() {
           {selectedFile && (selectedFile.kind === 'document' || (selectedFile.kind === 'audio' && selectedFile.transcript)) ? (
             <div className="flex-1 flex flex-col min-h-0">
               <div className="h-11 border-b border-white/[0.06] flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-                {/* Zoom controls — only for text/markdown views (PDF iframe has its own zoom) */}
-                {selectedFile.docType !== 'pdf' ? (
-                  <div className="flex items-center gap-2">
-                    <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
-                    <span className="text-xs text-gray-400 w-12 text-center">{zoom}%</span>
-                    <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.min(200, z + 10))}><ZoomIn size={16} /></button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">PDF viewer has built-in zoom & navigation</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.max(50, z - 10))}><ZoomOut size={16} /></button>
+                  <span className="text-xs text-gray-400 w-12 text-center">{zoom}%</span>
+                  <button className="p-1 hover:bg-gray-800 rounded" onClick={() => setZoom(z => Math.min(200, z + 10))}><ZoomIn size={16} /></button>
+                </div>
                 <div className="flex items-center gap-1.5">
                   {(selectedFile.content || selectedFile.transcript) && (
                     <button onClick={() => { navigator.clipboard.writeText(selectedFile.content || selectedFile.transcript || '').catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
@@ -555,7 +543,7 @@ export function WorkshopTab() {
                 </div>
               </div>
               <div
-                className={`flex-1 relative min-h-0 ${selectedFile.docType === 'pdf' ? 'overflow-hidden' : 'overflow-auto'}`}
+                className="flex-1 relative min-h-0 overflow-auto"
                 style={{ padding: selectedFile.docType === 'pdf' ? 0 : '1rem 1.5rem' }}
               >
                 {loading ? <div className="flex items-center justify-center h-full text-gray-500"><div className="text-center"><div className="w-7 h-7 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-xs">Loading...</p></div></div> : renderDocContent()}

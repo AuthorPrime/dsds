@@ -73,6 +73,82 @@ async fn get_app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
         .map_err(|e| format!("Could not resolve app data dir: {}", e))
 }
 
+/// Extract an archive (zip or tar.gz) to a destination directory.
+/// Detects format by file extension. Creates dest dir if needed.
+#[tauri::command]
+async fn extract_archive(archive_path: String, dest_dir: String) -> Result<String, String> {
+    let archive = std::path::Path::new(&archive_path);
+    let dest = std::path::Path::new(&dest_dir);
+
+    std::fs::create_dir_all(dest)
+        .map_err(|e| format!("Failed to create destination dir: {}", e))?;
+
+    let name = archive.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if name.ends_with(".zip") {
+        let file = std::fs::File::open(archive)
+            .map_err(|e| format!("Failed to open archive: {}", e))?;
+        let mut zip = zip::ZipArchive::new(file)
+            .map_err(|e| format!("Invalid zip archive: {}", e))?;
+
+        for i in 0..zip.len() {
+            let mut entry = zip.by_index(i)
+                .map_err(|e| format!("Zip entry error: {}", e))?;
+            let out_path = dest.join(entry.mangled_name());
+
+            if entry.is_dir() {
+                std::fs::create_dir_all(&out_path)
+                    .map_err(|e| format!("Failed to create dir: {}", e))?;
+            } else {
+                if let Some(parent) = out_path.parent() {
+                    std::fs::create_dir_all(parent)
+                        .map_err(|e| format!("Failed to create parent dir: {}", e))?;
+                }
+                let mut outfile = std::fs::File::create(&out_path)
+                    .map_err(|e| format!("Failed to create file: {}", e))?;
+                std::io::copy(&mut entry, &mut outfile)
+                    .map_err(|e| format!("Failed to extract file: {}", e))?;
+
+                // Preserve executable permission on Unix
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Some(mode) = entry.unix_mode() {
+                        std::fs::set_permissions(&out_path, std::fs::Permissions::from_mode(mode)).ok();
+                    }
+                }
+            }
+        }
+    } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+        let file = std::fs::File::open(archive)
+            .map_err(|e| format!("Failed to open archive: {}", e))?;
+        let gz = flate2::read::GzDecoder::new(file);
+        let mut tar = tar::Archive::new(gz);
+
+        tar.unpack(dest)
+            .map_err(|e| format!("Failed to extract tar.gz: {}", e))?;
+    } else {
+        return Err(format!("Unsupported archive format: {}", name));
+    }
+
+    // Clean up archive after successful extraction
+    std::fs::remove_file(archive).ok();
+
+    Ok(dest_dir)
+}
+
+/// Get the app's resource directory path (for bundled Piper binary + voice)
+#[tauri::command]
+async fn get_resource_dir(app: tauri::AppHandle) -> Result<String, String> {
+    app.path()
+        .resource_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| format!("Could not resolve resource dir: {}", e))
+}
+
 /// Start the bundled llama-server process.
 /// The server runs on the specified port with the given model.
 #[tauri::command]
@@ -155,7 +231,9 @@ pub fn run() {
             speak_piper,
             check_piper_installed,
             download_file,
+            extract_archive,
             get_app_data_dir,
+            get_resource_dir,
             start_llm_server,
             stop_llm_server,
             is_llm_server_running,
