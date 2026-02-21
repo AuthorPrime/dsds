@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "2.4.0"
+version = "2.5.0"
 description = "Sovereign Studio - Digital Sovereign Desktop Studio"
 authors = ["Author Prime <authorprime@digitalsovereign.org>"]
 license = ""

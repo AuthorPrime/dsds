@@ -1,6 +1,6 @@
 {
   "name": "dsds",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Sovereign Studio - A sovereign content creation suite with local AI, offline capability, and zero vendor lock-in",
   "private": true,
   "type": "module",
