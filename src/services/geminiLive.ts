@@ -264,15 +264,38 @@ Remember: this is being recorded. Speak clearly and conversationally, like you'r
  * Test if an API key is valid by making a simple request.
  */
 export async function validateApiKey(apiKey: string): Promise<boolean> {
+  // Try the SDK first
   try {
     const testClient = new GoogleGenAI({ apiKey });
-    // Try a simple text generation to validate
     const response = await testClient.models.generateContent({
-      model: 'gemini-2.5-flash-preview-native-audio-dialog',
+      model: 'gemini-2.5-flash',
       contents: 'Say hello in one word.',
     });
-    return !!response;
-  } catch {
+    console.log('[GeminiLive] Key validation via SDK success:', response.text);
+    return true;
+  } catch (sdkErr) {
+    console.warn('[GeminiLive] SDK validation failed, trying REST:', sdkErr);
+  }
+
+  // Fallback: direct REST API call (works in browser, no CORS issues)
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'Say hello in one word.' }] }],
+      }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      console.log('[GeminiLive] Key validation via REST success:', data);
+      return true;
+    }
+    console.error('[GeminiLive] REST validation failed:', resp.status, await resp.text());
+    return false;
+  } catch (err) {
+    console.error('[GeminiLive] All validation methods failed:', err);
     return false;
   }
 }
