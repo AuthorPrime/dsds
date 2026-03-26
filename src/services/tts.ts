@@ -12,6 +12,7 @@
 import { getSettings } from '../hooks/useSettings';
 import { speakWithCapture, stopTTSPlayback, isTTSPlaying } from './ttsAudioBridge';
 import { speakWithPiper } from './piperService';
+import { eventBus, EVENTS } from './eventBus';
 
 /**
  * Speak text using the built-in voice engine
@@ -24,7 +25,8 @@ export async function speak(text: string, voiceId?: string): Promise<void> {
   const usedPiper = await speakWithPiper(text, voice);
   if (usedPiper) return;
 
-  // Silent fallback to browser voice if Piper isn't installed yet
+  // Fallback to browser voice — notify the UI
+  eventBus.emit(EVENTS.TTS_FALLBACK, { reason: 'Piper TTS not available — using browser voice. Install Piper in Settings.' });
   return speakBrowserFallback(text);
 }
 

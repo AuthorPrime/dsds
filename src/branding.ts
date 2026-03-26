@@ -14,7 +14,7 @@ import { getSettings } from './hooks/useSettings';
 export const APP_BRAND = {
   name: 'Sovereign Studio',
   tagline: 'Record. Create. Publish. Sovereign.',
-  version: '2.4.0',
+  version: '2.5.0',
 
   colors: {
     primary: '#8B5CF6',       // Purple - sovereignty

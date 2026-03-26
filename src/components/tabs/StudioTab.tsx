@@ -8,7 +8,7 @@ import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection
 import { useOllamaChat } from '../../hooks/useOllamaChat';
 import { useRecording } from '../../hooks/useRecording';
 import { getSettings, incrementStat } from '../../hooks/useSettings';
-import { loadCompanion } from '../../utils/aiProviders';
+import { loadCompanion } from '../../utils/companions';
 import { enumerateAudioDevices } from '../../utils/audioUtils';
 import { speak } from '../../services/tts';
 import { initTTSBridge, getTTSOutputStream } from '../../services/ttsAudioBridge';
@@ -321,10 +321,10 @@ export function StudioTab() {
     <div className="flex-1 flex flex-col min-h-0">
       {/* Sub-tab toggle */}
       <div className="flex-shrink-0 border-b border-white/[0.06] bg-gray-900/40 px-6">
-        <div className="flex justify-center gap-2">
+        <div className="flex justify-center gap-1">
           {(['record', 'produce'] as SubTab[]).map(t => (
             <button key={t} onClick={() => setSubTab(t)}
-              className={`px-6 py-3 text-sm font-medium border-b-2 -mb-[1px] transition-all ${
+              className={`px-5 py-2.5 text-sm font-medium border-b-2 -mb-[1px] transition-all ${
                 subTab === t ? 'text-cyan-300 border-cyan-500 bg-cyan-500/[0.06]' : 'text-gray-500 border-transparent hover:text-gray-300 hover:bg-white/[0.03]'
               }`}
             >{t === 'record' ? 'Record' : 'Produce'}</button>

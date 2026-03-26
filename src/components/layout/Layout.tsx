@@ -49,6 +49,7 @@ export function Layout({ tabs }: LayoutProps) {
   const [activeTab, setActiveTab] = useState<TabId>('studio');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [ttsEngine, setTtsEngine] = useState<'checking' | 'piper' | 'web'>('checking');
+  const [ttsFallbackMsg, setTtsFallbackMsg] = useState<string | null>(null);
 
   // Check TTS engine status
   const checkTtsStatus = useCallback(async () => {
@@ -69,7 +70,12 @@ export function Layout({ tabs }: LayoutProps) {
   // Check on mount + listen for voice install events
   useEffect(() => {
     checkTtsStatus();
-    return eventBus.on(EVENTS.TTS_ENGINE_CHANGED, checkTtsStatus);
+    const unsub1 = eventBus.on(EVENTS.TTS_ENGINE_CHANGED, checkTtsStatus);
+    const unsub2 = eventBus.on(EVENTS.TTS_FALLBACK, (data: { reason: string }) => {
+      setTtsFallbackMsg(data.reason);
+      setTimeout(() => setTtsFallbackMsg(null), 6000);
+    });
+    return () => { unsub1(); unsub2(); };
   }, [checkTtsStatus]);
 
   // Global keyboard shortcuts
@@ -121,14 +127,14 @@ export function Layout({ tabs }: LayoutProps) {
 
       {/* ─── Tab Navigation ─── */}
       <div className="bg-gray-900/50 border-b border-white/[0.08] flex-shrink-0">
-        <div className="flex justify-center px-phi-4 gap-phi-6">
+        <div className="flex justify-center px-4 gap-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
-                flex items-center gap-phi-3 px-phi-5 py-phi-3 text-phi-sm font-medium transition-all duration-300
-                border-b-2 -mb-[1px] whitespace-nowrap rounded-t-phi-md
+                flex items-center gap-2 px-5 py-2.5 text-sm font-medium transition-all duration-300
+                border-b-2 -mb-[1px] whitespace-nowrap rounded-t-md
                 ${activeTab === tab.id
                   ? 'text-purple-300 border-purple-500 bg-purple-500/[0.08] shadow-glow-purple'
                   : 'text-gray-500 border-transparent hover:text-gray-300 hover:bg-white/[0.04]'
@@ -197,6 +203,14 @@ export function Layout({ tabs }: LayoutProps) {
             </div>
             <p className="text-phi-xs text-slate-600 mt-phi-4 text-center">Press Esc or click outside to close</p>
           </div>
+        </div>
+      )}
+
+      {/* ─── TTS Fallback Toast ─── */}
+      {ttsFallbackMsg && (
+        <div className="bg-amber-900/30 border-t border-amber-500/30 px-4 py-1.5 flex items-center justify-between flex-shrink-0">
+          <span className="text-xs text-amber-300">{ttsFallbackMsg}</span>
+          <button onClick={() => setTtsFallbackMsg(null)} className="text-xs text-amber-500 hover:text-amber-300 ml-4">Dismiss</button>
         </div>
       )}
 

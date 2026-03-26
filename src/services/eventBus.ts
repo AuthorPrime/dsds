@@ -39,4 +39,6 @@ export const EVENTS = {
   RECORDING_SAVED: 'recording:saved',
   /** Fired when voice engine status changes (install/uninstall). Payload: void */
   TTS_ENGINE_CHANGED: 'tts:engine-changed',
+  /** Fired when Piper TTS fails and browser voice is used. Payload: { reason: string } */
+  TTS_FALLBACK: 'tts:fallback',
 } as const;

@@ -13,7 +13,7 @@ import {
 import type { CompanionConfig } from '../../types';
 import { FilePickerButton } from '../shared/FilePickerButton';
 import { ensureDirectories, getOutputStructure } from '../../services/fileManager';
-import { loadCompanions } from '../../utils/aiProviders';
+import { loadCompanions } from '../../utils/companions';
 import { isOllamaAvailable, listModels as listOllamaModels, getActiveBackend, resetBackendDetection } from '../../services/ollama';
 import { getPiperStatus, PIPER_VOICES } from '../../services/piperService';
 import { eventBus, EVENTS } from '../../services/eventBus';

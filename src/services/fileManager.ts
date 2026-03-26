@@ -7,7 +7,7 @@
 import { getSettings } from '../hooks/useSettings';
 
 /** Output categories mapped to subfolders */
-export type OutputCategory = 'recordings' | 'transcripts' | 'episodes' | 'publications' | 'books' | 'thumbnails';
+export type OutputCategory = 'recordings' | 'transcripts' | 'episodes';
 
 const CATEGORY_FOLDERS: Record<OutputCategory, string> = {
   recordings: 'recordings',
@@ -15,7 +15,6 @@ const CATEGORY_FOLDERS: Record<OutputCategory, string> = {
   episodes: 'episodes',
   publications: 'publications',
   books: 'books',
-  thumbnails: 'thumbnails',
 };
 
 /** Check if running inside Tauri desktop shell */
@@ -166,6 +165,5 @@ export function getOutputStructure(): Array<{ folder: string; description: strin
     { folder: 'episodes', description: 'Pipeline output' },
     { folder: 'publications', description: 'Documents & exports' },
     { folder: 'books', description: 'Compiled books' },
-    { folder: 'thumbnails', description: 'Episode thumbnails' },
   ];
 }

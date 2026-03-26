@@ -9,7 +9,6 @@ import {
   generateSocialPosts,
   generateShowNotes,
 } from './ollama';
-import { generateThumbnail } from './thumbnail';
 import { saveBlob } from './fileManager';
 import { getUserBranding } from '../branding';
 
@@ -20,7 +19,6 @@ export type PipelineStage =
   | 'generating_description'
   | 'generating_show_notes'
   | 'generating_social'
-  | 'generating_thumbnail'
   | 'packaging'
   | 'complete'
   | 'error';
@@ -166,31 +164,7 @@ export class ProductionPipeline {
         episode: { ...this.state.episode, socialPosts },
       });
 
-      // Stage 6: Generate branded thumbnail
-      this.update({
-        stage: 'generating_thumbnail',
-        progress: 90,
-        message: 'Generating branded thumbnail...',
-      });
-      const thumbnailDataUrl = generateThumbnail({ title });
-      let thumbnailFile = thumbnailDataUrl || undefined;
-
-      // Save thumbnail to organized output folder
-      if (thumbnailDataUrl) {
-        try {
-          const res = await fetch(thumbnailDataUrl);
-          const blob = await res.blob();
-          const slug = (title || 'episode').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 60);
-          const savedPath = await saveBlob('thumbnails', `${slug}_thumbnail.png`, blob);
-          console.log(`Thumbnail saved: ${savedPath}`);
-          // Keep data URL for display, but also record path
-          thumbnailFile = thumbnailDataUrl;
-        } catch (saveErr) {
-          console.warn('Could not save thumbnail to output folder:', saveErr);
-        }
-      }
-
-      // Stage 7: Package
+      // Stage 6: Package
       this.update({
         stage: 'packaging',
         progress: 95,
