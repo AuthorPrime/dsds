@@ -119,8 +119,11 @@ export function StudioTab() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <div className={`status-dot ${isAIConnected ? 'online' : 'offline'}`} />
-            <span className="mono" style={{ color: isAIConnected ? 'var(--green)' : 'var(--text-dim)' }}>
-              {isAIConnected ? `${companionName} connected` : 'AI offline'}
+            <span className="mono" style={{ color: isAIConnected ? 'var(--green)' : aiError ? 'var(--red)' : 'var(--text-dim)' }}>
+              {isAIConnected ? `${companionName} connected` :
+               aiError ? `Error: ${aiError}` :
+               isListening ? 'Connecting...' :
+               'Press record to start'}
             </span>
           </div>
           {isRecording && (

@@ -1,247 +1,166 @@
 /**
- * StartupScreen — Sovereign Studio Boot Sequence
+ * StartupScreen — Sovereign Podcaster Boot Sequence
  *
- * A branded splash screen that gates the main UI while:
- * 1. Killing orphaned Ollama processes
- * 2. Starting a fresh Ollama server
- * 3. Verifying health
- * 4. Checking/pulling required models
+ * A clean splash screen that:
+ * 1. Shows the brand
+ * 2. Checks if Gemini API key is configured
+ * 3. Lets user proceed with or without AI
  *
- * Shows DSS branding, sacred geometry, the (A+I)² equation,
- * and a live progress indicator for each stage.
+ * No Ollama download. No model pulling. Just a key check.
+ *
+ * (A+I)² = A² + 2AI + I²
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
-import { runStartupSequence } from '../services/startupManager';
-import type { StartupProgress, StartupResult } from '../services/startupManager';
-
-/* ─── Sacred Geometry: Seed of Life (matches CreditsTab) ─── */
-function SeedOfLife({ size = 200, className = '' }: { size?: number; className?: string }) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size * 0.2;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className={className} aria-hidden>
-      <g stroke="currentColor" fill="none" strokeWidth="0.5" opacity="0.08">
-        <circle cx={cx} cy={cy} r={r} />
-        {Array.from({ length: 6 }, (_, i) => {
-          const angle = (i * Math.PI * 2) / 6 - Math.PI / 2;
-          return <circle key={i} cx={cx + r * Math.cos(angle)} cy={cy + r * Math.sin(angle)} r={r} />;
-        })}
-        <circle cx={cx} cy={cy} r={r * 2} />
-        <circle cx={cx} cy={cy} r={r * 2.6} />
-      </g>
-    </svg>
-  );
-}
-
-/* ─── Stage labels for display ─── */
-const STAGE_LABELS: Record<string, string> = {
-  initializing: 'Initializing',
-  killing_orphans: 'Clearing processes',
-  starting_ollama: 'Starting AI engine',
-  waiting_healthy: 'Connecting',
-  checking_models: 'Checking models',
-  pulling_model: 'Downloading model',
-  ready: 'Ready',
-  error: 'Error',
-};
-
-/* ─── Progress dots animation ─── */
-function ProgressDots() {
-  const [dots, setDots] = useState('');
-  useEffect(() => {
-    const iv = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 500);
-    return () => clearInterval(iv);
-  }, []);
-  return <span className="inline-block w-5 text-left">{dots}</span>;
-}
-
-/* ─── Main Component ─── */
+import { useState, useEffect } from 'react';
+import { getSettings } from '../hooks/useSettings';
+import type { StartupResult } from '../services/startupManager';
 
 interface StartupScreenProps {
   onReady: (result: StartupResult) => void;
-  /** Allow user to skip startup and enter the app anyway */
-  onSkip?: () => void;
+  onSkip: () => void;
 }
 
 export function StartupScreen({ onReady, onSkip }: StartupScreenProps) {
-  const [progress, setProgress] = useState<StartupProgress>({
-    stage: 'initializing',
-    message: 'Preparing Sovereign Studio...',
-  });
-  const [fadeOut, setFadeOut] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
+  const [status, setStatus] = useState<'checking' | 'ready' | 'no-key'>('checking');
 
-  const runSequence = useCallback(async () => {
-    setHasError(false);
-    setProgress({ stage: 'initializing', message: 'Preparing Sovereign Studio...' });
+  useEffect(() => {
+    // Simple check: do we have a Gemini API key?
+    const settings = getSettings();
+    const hasKey = !!(settings.geminiApiKey && settings.geminiApiKey.trim());
 
-    const result = await runStartupSequence((p) => {
-      setProgress(p);
-      if (p.stage === 'error') setHasError(true);
-    });
+    // Brief pause for the splash to feel intentional, not instant
+    const timer = setTimeout(() => {
+      if (hasKey) {
+        setStatus('ready');
+        // Auto-proceed after a moment
+        setTimeout(() => {
+          onReady({ success: true, message: 'Gemini API key found' });
+        }, 800);
+      } else {
+        setStatus('no-key');
+      }
+    }, 1200);
 
-    if (result.success) {
-      // Brief pause so user sees "Ready" before transition
-      await new Promise(r => setTimeout(r, 800));
-      setFadeOut(true);
-      // Wait for fade animation, then pass through
-      await new Promise(r => setTimeout(r, 600));
-      onReady(result);
-    }
+    return () => clearTimeout(timer);
   }, [onReady]);
 
-  // Run on mount, and on retry
-  useEffect(() => {
-    runSequence();
-  }, [runSequence, retryCount]);
-
-  const isWorking = !hasError && progress.stage !== 'ready';
-  const isReady = progress.stage === 'ready';
-  const isPulling = progress.stage === 'pulling_model';
-
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-950 via-[#0a0a14] to-black transition-opacity duration-500 ${
-        fadeOut ? 'opacity-0' : 'opacity-100'
-      }`}
-    >
-      {/* Background sacred geometry */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <SeedOfLife size={600} className="text-purple-400 sacred-geometry-spin" />
+    <div style={{
+      width: '100%',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--bg-void)',
+      gap: 'var(--space-5)',
+    }}>
+      {/* Logo */}
+      <div style={{
+        width: '72px',
+        height: '72px',
+        borderRadius: 'var(--radius-xl)',
+        background: 'linear-gradient(135deg, var(--gold-dim), var(--gold))',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '28px',
+        fontWeight: 700,
+        color: 'var(--bg-void)',
+        letterSpacing: '-1px',
+      }}>
+        SP
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 text-center max-w-lg px-phi-6">
+      {/* Title */}
+      <div style={{ textAlign: 'center' }}>
+        <h1 style={{
+          fontSize: 'var(--text-lg)',
+          fontWeight: 600,
+          color: 'var(--gold)',
+          marginBottom: '8px',
+        }}>
+          Sovereign Podcaster
+        </h1>
+        <p className="mono" style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+          Your voice. Your AI. Your machine.
+        </p>
+      </div>
 
-        {/* Logo / Brand */}
-        <div className="mb-phi-6">
-          <Sparkles
-            size={42}
-            className={`mx-auto mb-phi-4 ${
-              isReady ? 'text-emerald-400' : hasError ? 'text-red-400' : 'text-purple-400 breathe'
-            }`}
-          />
-
-          <h1 className="text-phi-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-violet-300 to-cyan-400 leading-tight">
-            Sovereign Studio
-          </h1>
-
-          <p className="text-phi-xs text-slate-600 mt-phi-2 tracking-wider font-mono">
-            (A+I)<sup>2</sup> = A<sup>2</sup> + 2AI + I<sup>2</sup>
-          </p>
-        </div>
-
-        {/* Status Message */}
-        <div className="mb-phi-5 min-h-[5.5rem]">
-          <div className="flex items-center justify-center gap-phi-3 mb-phi-3">
-            {isWorking && (
-              <div className="w-phi-4 h-phi-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-            )}
-            {isReady && (
-              <div className="w-phi-4 h-phi-4 rounded-full bg-emerald-400 pulse-glow shadow-glow-cyan" />
-            )}
-            {hasError && (
-              <AlertCircle size={18} className="text-red-400" />
-            )}
-
-            <span className={`text-phi-md font-medium ${
-              isReady ? 'text-emerald-400' : hasError ? 'text-red-400' : 'text-slate-300'
-            }`}>
-              {progress.message}
-              {isWorking && <ProgressDots />}
+      {/* Status */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--space-2)',
+        padding: 'var(--space-2) var(--space-4)',
+        background: 'var(--bg-card)',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border)',
+      }}>
+        {status === 'checking' && (
+          <>
+            <div style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: 'var(--gold)',
+              animation: 'pulse-thinking 1.618s ease infinite',
+            }} />
+            <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              Starting up...
             </span>
-          </div>
-
-          {/* Detail / substatus */}
-          {progress.detail && (
-            <p className="text-phi-sm text-slate-500 mt-phi-2">{progress.detail}</p>
-          )}
-
-          {/* Stage indicator bar */}
-          {isWorking && !isPulling && (
-            <div className="mt-phi-4 mx-auto max-w-md">
-              <div className="flex gap-phi-2">
-                {['initializing', 'killing_orphans', 'starting_ollama', 'waiting_healthy', 'checking_models'].map((stage) => {
-                  const stages = ['initializing', 'killing_orphans', 'starting_ollama', 'waiting_healthy', 'checking_models'];
-                  const currentIdx = stages.indexOf(progress.stage);
-                  const stageIdx = stages.indexOf(stage);
-                  const isComplete = stageIdx < currentIdx;
-                  const isCurrent = stage === progress.stage;
-                  return (
-                    <div
-                      key={stage}
-                      className={`h-[3px] flex-1 rounded-full transition-all duration-500 ${
-                        isComplete
-                          ? 'bg-gradient-to-r from-purple-500 to-cyan-500'
-                          : isCurrent
-                            ? 'bg-purple-400/60 shimmer'
-                            : 'bg-white/5'
-                      }`}
-                      title={STAGE_LABELS[stage]}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Model pull progress bar */}
-          {isPulling && progress.percent !== undefined && (
-            <div className="mt-phi-4 mx-auto max-w-md">
-              <div className="h-[3px] bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full transition-all duration-300 shadow-glow-purple"
-                  style={{ width: `${Math.min(progress.percent, 100)}%` }}
-                />
-              </div>
-              <p className="text-phi-xs text-slate-600 mt-phi-2">
-                {progress.percent}% — {progress.detail}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Error actions */}
-        {hasError && (
-          <div className="space-y-phi-3">
-            <button
-              onClick={() => setRetryCount(c => c + 1)}
-              className="inline-flex items-center gap-phi-3 px-phi-5 py-phi-3 bg-purple-600/20 border border-purple-500/30 rounded-phi-lg text-phi-sm text-purple-300 hover:bg-purple-600/30 hover:shadow-phi-md transition-all duration-300"
-            >
-              <RefreshCw size={16} /> Retry
-            </button>
-
-            <div className="flex items-center justify-center gap-phi-5 text-phi-sm text-slate-600">
-              <a
-                href="https://ollama.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-phi-2 hover:text-slate-400 transition-colors"
-              >
-                Download Ollama <ExternalLink size={12} />
-              </a>
-              {onSkip && (
-                <button
-                  onClick={onSkip}
-                  className="hover:text-slate-400 transition-colors"
-                >
-                  Continue without AI →
-                </button>
-              )}
-            </div>
-          </div>
+          </>
         )}
-
-        {/* Footer branding */}
-        <div className="mt-phi-7 text-phi-xs text-slate-700 space-y-phi-2">
-          <p className="text-purple-500/50">Sovereign Studio</p>
-          <p>Sovereign AI &bull; Local First &bull; Own Everything</p>
-        </div>
+        {status === 'ready' && (
+          <>
+            <div className="status-dot online" />
+            <span className="mono" style={{ fontSize: '11px', color: 'var(--green)' }}>
+              AI co-host ready
+            </span>
+          </>
+        )}
+        {status === 'no-key' && (
+          <>
+            <div className="status-dot offline" />
+            <span className="mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              No API key — set up in next step
+            </span>
+          </>
+        )}
       </div>
+
+      {/* Skip / Continue button for no-key state */}
+      {status === 'no-key' && (
+        <button
+          onClick={onSkip}
+          style={{
+            padding: 'var(--space-2) var(--space-5)',
+            background: 'var(--gold)',
+            color: 'var(--bg-void)',
+            border: 'none',
+            borderRadius: 'var(--radius-md)',
+            fontSize: 'var(--text-sm)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: `all var(--duration-normal) var(--ease-sacred)`,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gold-bright)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--gold)'; }}
+        >
+          Continue to Setup
+        </button>
+      )}
+
+      {/* Formula */}
+      <p style={{
+        position: 'absolute',
+        bottom: 'var(--space-5)',
+        fontSize: '12px',
+        color: 'var(--text-dim)',
+        letterSpacing: '1px',
+      }}>
+        (A+I)² = A² + 2AI + I²
+      </p>
     </div>
   );
 }

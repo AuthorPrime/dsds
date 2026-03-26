@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ArrowRight, Check, Loader2, Mic, Radio, ExternalLink, Key } from 'lucide-react';
+import { ArrowRight, Check, Loader2, Mic, Radio, ExternalLink, Key, Eye, EyeOff } from 'lucide-react';
 import { getSettings } from '../hooks/useSettings';
 import type { AppSettings } from '../hooks/useSettings';
 import { validateApiKey } from '../services/geminiLive';
@@ -38,6 +38,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   });
   const [validating, setValidating] = useState(false);
   const [keyValid, setKeyValid] = useState<boolean | null>(null);
+  const [showKey, setShowKey] = useState(false);
 
   // Auto-validate if key exists on mount
   useEffect(() => {
@@ -293,15 +294,34 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               </button>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); setKeyValid(null); }}
-                placeholder="Paste your Google AI Studio key"
-                style={{ ...inputStyle, flex: 1 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold-dim)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
-              />
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => { setApiKey(e.target.value); setKeyValid(null); }}
+                  placeholder="Paste your Google AI Studio key"
+                  style={{ ...inputStyle, width: '100%', paddingRight: '36px' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold-dim)'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+                />
+                <button
+                  onClick={() => setShowKey(!showKey)}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-dim)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                  }}
+                  title={showKey ? 'Hide key' : 'Show key'}
+                >
+                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
               <button
                 onClick={handleValidateKey}
                 disabled={!apiKey.trim() || validating}
