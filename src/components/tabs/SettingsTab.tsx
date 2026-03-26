@@ -1,820 +1,317 @@
 /**
- * Settings Tab - Simplified for Sovereign Studio
- * Built-in AI, built-in voices, built-in speech recognition
- * Advanced options available for power users
+ * Settings Tab — Essential configuration only
+ *
+ * Four sections:
+ *   1. AI Model — Ollama model selection
+ *   2. Voice — Piper TTS voice for AI co-host
+ *   3. Recording — Microphone, silence threshold
+ *   4. Output — Save location
+ *
+ * Clean. No bloat. Every option has a reason.
+ *
+ * (A+I)² = A² + 2AI + I²
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Volume2, Cpu, FolderOpen, Save, RefreshCw, Sparkles,
-  Mic, MessageSquare, Users, Check, AlertCircle, Loader2, FolderPlus, Tag,
-  ChevronDown, ChevronUp, Download, Cloud, Eye, EyeOff,
+  Cpu, Volume2, Mic, FolderOpen, Save, RefreshCw,
+  Loader2, Check, AlertCircle,
 } from 'lucide-react';
-import type { CompanionConfig } from '../../types';
-import { FilePickerButton } from '../shared/FilePickerButton';
-import { ensureDirectories, getOutputStructure } from '../../services/fileManager';
-import { loadCompanions } from '../../utils/companions';
-import { isOllamaAvailable, listModels as listOllamaModels, getActiveBackend, resetBackendDetection } from '../../services/ollama';
+import { isOllamaAvailable, listModels as listOllamaModels } from '../../services/ollama';
 import { getPiperStatus, PIPER_VOICES } from '../../services/piperService';
-import { eventBus, EVENTS } from '../../services/eventBus';
+import { FilePickerButton } from '../shared/FilePickerButton';
+import { getSettings } from '../../hooks/useSettings';
+import type { AppSettings } from '../../hooks/useSettings';
 
-// --- Settings shape ---
-interface Settings {
-  // Provider selections (simplified — one built-in per category)
-  llmProvider: string;
-  llmModel: string;
-  ttsProvider: string;
-  ttsVoice: string;
-  sttProvider: string;
-  sttModel: string;
-
-  // Companion
-  activeCompanion: string;
-
-  // API Keys (kept for backward compat, hidden from UI)
-  geminiApiKey: string;
-  anthropicApiKey: string;
-
-  // Cloud AI
-  llmApiEndpoint: string;
-  llmApiKey: string;
-  llmApiModel: string;
-
-  // Studio
-  silenceThreshold: number;
-  autoTranscribe: boolean;
-
-  // Paths
-  localModelPath: string;
-  outputFolder: string;
-
-  // User branding
-  podcastName: string;
-  hostName: string;
-  organizationName: string;
-  websiteUrl: string;
-}
-
-const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
-
-const DEFAULTS: Settings = {
-  llmProvider: 'ollama',
-  llmModel: 'llama3.2',
-  ttsProvider: 'piper',
-  ttsVoice: 'en_US-amy-medium',
-  sttProvider: 'web_speech',
-  sttModel: '',
-  activeCompanion: 'aletheia',
-  geminiApiKey: '',
-  anthropicApiKey: '',
-  llmApiEndpoint: '',
-  llmApiKey: '',
-  llmApiModel: '',
-  silenceThreshold: 2000,
-  autoTranscribe: false,
-  localModelPath: isWindows ? 'C:\\Users\\Public\\.ollama\\models' : '~/.ollama/models',
-  outputFolder: isWindows ? 'C:\\Users\\Public\\Documents\\Sovereign_Studio' : '~/Documents/Sovereign_Studio',
-  podcastName: 'My Podcast',
-  hostName: 'Host',
-  organizationName: '',
-  websiteUrl: '',
-};
-
-function loadSettings(): Settings {
-  try {
-    const saved = localStorage.getItem('dsds-settings');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (typeof parsed === 'object' && parsed !== null && parsed.constructor === Object) {
-        const result: Record<string, unknown> = {};
-        for (const [key, defaultVal] of Object.entries(DEFAULTS)) {
-          const val = parsed[key];
-          result[key] = typeof val === typeof defaultVal ? val : defaultVal;
-        }
-        return result as unknown as Settings;
-      }
-    }
-  } catch {
-    console.error('Failed to load settings');
-  }
-  return { ...DEFAULTS };
-}
-
-// --- Main component ---
 export function SettingsTab() {
-  const [settings, setSettings] = useState<Settings>(loadSettings);
+  // Load settings
+  const [settings, setSettings] = useState<AppSettings>(() => getSettings());
   const [saved, setSaved] = useState(false);
-  const [dirsCreated, setDirsCreated] = useState(false);
-  const [creatingDirs, setCreatingDirs] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Companions
-  const [companions, setCompanions] = useState<CompanionConfig[]>([]);
-
-  // Live Ollama models (dynamically discovered)
-  const [ollamaLiveModels, setOllamaLiveModels] = useState<string[]>([]);
 
   // AI status
-  const [ollamaStatus, setOllamaStatus] = useState<boolean | null>(null);
-  const [activeBackend, setActiveBackend] = useState<string | null>(null);
+  const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+  const [checking, setChecking] = useState(false);
 
-  // Piper TTS status
-  const [piperInstalled, setPiperInstalled] = useState(false);
-  const [piperVoiceStatus, setPiperVoiceStatus] = useState<{ id: string; name: string; installed: boolean; size: string }[]>([]);
-  const [downloadingVoice, setDownloadingVoice] = useState<string | null>(null);
-  const [downloadProgress, setDownloadProgress] = useState<string>('');
-  const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [recheckingVoice, setRecheckingVoice] = useState(false);
-
-  // Cloud AI
-  const [apiTestResult, setApiTestResult] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [apiTestMessage, setApiTestMessage] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
-
-  const recheckVoiceStatus = async () => {
-    setRecheckingVoice(true);
-    setVoiceError(null);
-    try {
-      const status = await getPiperStatus();
-      setPiperInstalled(status.installed);
-      setPiperVoiceStatus(status.voices);
-    } catch {
-      setVoiceError('Could not detect voice engine.');
-    } finally {
-      setRecheckingVoice(false);
-    }
-  };
-
-  // Load companions, check AI backend, check Piper status
+  // Check Ollama on mount
   useEffect(() => {
-    async function init() {
-      const comps = await loadCompanions();
-      setCompanions(comps);
-
-      const ollamaOk = await isOllamaAvailable();
-      setOllamaStatus(ollamaOk);
-      setActiveBackend(getActiveBackend());
-      if (ollamaOk) {
-        const models = await listOllamaModels();
-        setOllamaLiveModels(models);
-      }
-
-      // Check Piper TTS status
-      try {
-        const status = await getPiperStatus();
-        setPiperInstalled(status.installed);
-        setPiperVoiceStatus(status.voices);
-      } catch {
-        // Piper check failed — not installed
-      }
-    }
-    init();
+    checkOllama();
   }, []);
 
-  const update = useCallback(<K extends keyof Settings>(key: K, value: Settings[K]) => {
+  const checkOllama = useCallback(async () => {
+    setChecking(true);
+    try {
+      const ok = await isOllamaAvailable();
+      setOllamaOk(ok);
+      if (ok) {
+        const m = await listOllamaModels();
+        setModels(m);
+      }
+    } catch {
+      setOllamaOk(false);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
     setSaved(false);
-  }, []);
+  };
 
-  const saveSettings = useCallback(() => {
-    try {
-      // Merge with existing data to preserve fields this component doesn't manage
-      // (hasCompletedOnboarding, totalSessions, totalEnhancements, etc.)
-      const existing = JSON.parse(localStorage.getItem('dsds-settings') || '{}');
-      localStorage.setItem('dsds-settings', JSON.stringify({ ...existing, ...settings }));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch {
-      console.error('Failed to save settings');
-    }
-  }, [settings]);
+  const handleSave = () => {
+    localStorage.setItem('sovereign-studio-settings', JSON.stringify(settings));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
 
-  // Model options (live discovery or static fallback)
-  const llmModelOptions = ollamaLiveModels.length > 0
-    ? ollamaLiveModels
-    : ['llama3.2'];
+  // ─── Shared styles ──────────────────────────────────────────
+  const sectionStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-3)',
+    padding: 'var(--space-4)',
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-lg)',
+  };
+
+  const sectionTitleStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    fontSize: 'var(--text-md)',
+    fontWeight: 600,
+    color: 'var(--text-primary)',
+  };
+
+  const fieldStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 'var(--text-sm)',
+    color: 'var(--text-muted)',
+  };
+
+  const selectStyle: React.CSSProperties = {
+    width: '100%',
+    padding: 'var(--space-2) var(--space-3)',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+    color: 'var(--text-primary)',
+    fontSize: 'var(--text-sm)',
+    fontFamily: 'inherit',
+    outline: 'none',
+    cursor: 'pointer',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    ...selectStyle,
+    cursor: 'text',
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto p-phi-6 space-y-phi-6">
-        {/* Header */}
-        <div>
-          <h2 className="text-phi-xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-            Settings
-          </h2>
-          <p className="text-phi-md text-slate-400 mt-phi-3">Configure your Sovereign Studio</p>
+    <div style={{
+      maxWidth: '600px',
+      margin: '0 auto',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 'var(--space-4)',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--gold)' }}>
+          Settings
+        </h2>
+        <button
+          onClick={handleSave}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: 'var(--space-2) var(--space-4)',
+            background: saved ? 'rgba(57, 255, 20, 0.1)' : 'var(--gold)',
+            color: saved ? 'var(--green)' : 'var(--bg-void)',
+            border: saved ? '1px solid rgba(57, 255, 20, 0.3)' : 'none',
+            borderRadius: 'var(--radius-md)',
+            fontSize: 'var(--text-sm)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: `all var(--duration-normal) var(--ease-sacred)`,
+          }}
+        >
+          {saved ? <><Check size={14} /> Saved</> : <><Save size={14} /> Save</>}
+        </button>
+      </div>
+
+      {/* ─── Section 1: AI Model ─── */}
+      <div style={sectionStyle}>
+        <div style={sectionTitleStyle}>
+          <Cpu size={18} style={{ color: 'var(--gold)' }} />
+          AI Co-Host
         </div>
 
-        {/* Status Bar */}
-        <div className="flex flex-wrap gap-phi-4 p-phi-4 bg-white/[0.05] rounded-phi-lg border border-white/10 shadow-phi-sm">
-          <span className={`flex items-center gap-phi-2 text-phi-sm ${ollamaStatus === null ? 'text-slate-500' : ollamaStatus ? 'text-emerald-400' : 'text-red-400'}`}>
-            {ollamaStatus === null ? (
-              <><Loader2 size={14} className="animate-spin" /> Checking AI...</>
-            ) : (
-              <>
-                <span className={`w-phi-2 h-phi-2 rounded-full ${ollamaStatus ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                {activeBackend === 'api' ? 'Cloud AI' : activeBackend === 'llamacpp' ? 'Built-in AI' : 'AI Model'} {ollamaStatus ? 'ready' : 'offline'}
-              </>
-            )}
-          </span>
-          <span className={`flex items-center gap-phi-2 text-phi-sm ${piperInstalled ? 'text-emerald-400' : 'text-amber-400'}`}>
-            <span className={`w-phi-2 h-phi-2 rounded-full ${piperInstalled ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            {piperInstalled ? 'Voice ready' : 'Voice needs setup'}
-          </span>
-          <span className="flex items-center gap-phi-2 text-phi-sm text-emerald-400">
-            <span className="w-phi-2 h-phi-2 rounded-full bg-emerald-400" />
-            Speech recognition ready
-          </span>
-        </div>
-
-        {/* ===== AI MODEL ===== */}
-        <section className="space-y-phi-4">
-          <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
-            <MessageSquare size={20} /> AI Model
-          </h3>
-          <div className="space-y-3 pl-6">
-            <div className="flex items-center gap-2 text-sm">
-              {ollamaStatus && activeBackend === 'api' ? (
-                <span className="text-emerald-400 flex items-center gap-1"><Check size={14} /> Cloud AI connected ({settings.llmApiModel || 'default model'})</span>
-              ) : ollamaStatus && activeBackend === 'llamacpp' ? (
-                <span className="text-emerald-400 flex items-center gap-1"><Check size={14} /> Built-in AI model active</span>
-              ) : ollamaStatus ? (
-                <span className="text-emerald-400 flex items-center gap-1"><Check size={14} /> AI connected — {ollamaLiveModels.length} model(s) available</span>
-              ) : (
-                <span className="text-amber-400 flex items-center gap-1"><AlertCircle size={14} /> AI not running. Start from the onboarding setup.</span>
-              )}
-            </div>
-
-            {llmModelOptions.length > 1 && (
-              <div>
-                <label className="block text-sm text-slate-400 mb-2">Active Model</label>
-                <select
-                  value={settings.llmModel}
-                  onChange={(e) => update('llmModel', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
-                >
-                  {llmModelOptions.map(id => (
-                    <option key={id} value={id}>{id}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ===== CLOUD AI ===== */}
-        <section className="space-y-phi-4">
-          <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
-            <Cloud size={20} /> Cloud AI
-            <span className="text-phi-xs text-slate-600 font-normal">(Optional)</span>
-          </h3>
-          <p className="text-phi-xs text-slate-500 pl-phi-5">
-            Connect to any OpenAI-compatible API for more powerful AI.
-            Works with OpenAI, Anthropic, Groq, Together, LM Studio, and more.
-          </p>
-          <div className="space-y-phi-4 pl-phi-5">
-            <div>
-              <label className="block text-phi-sm text-slate-400 mb-phi-2">API Endpoint</label>
-              <input
-                type="text"
-                value={settings.llmApiEndpoint}
-                onChange={(e) => { update('llmApiEndpoint', e.target.value); setApiTestResult('idle'); }}
-                className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 rounded-phi-lg text-slate-200 focus:border-purple-500/50 focus:outline-none transition-colors font-mono text-phi-sm"
-                placeholder="https://api.openai.com/v1"
-              />
-            </div>
-            <div>
-              <label className="block text-phi-sm text-slate-400 mb-phi-2">API Key</label>
-              <div className="relative">
-                <input
-                  type={showApiKey ? 'text' : 'password'}
-                  value={settings.llmApiKey}
-                  onChange={(e) => { update('llmApiKey', e.target.value); setApiTestResult('idle'); }}
-                  className="w-full px-phi-4 py-phi-3 pr-12 bg-white/[0.05] border border-white/10 rounded-phi-lg text-slate-200 focus:border-purple-500/50 focus:outline-none transition-colors font-mono text-phi-sm"
-                  placeholder="sk-..."
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-phi-sm text-slate-400 mb-phi-2">Model Name</label>
-              <input
-                type="text"
-                value={settings.llmApiModel}
-                onChange={(e) => { update('llmApiModel', e.target.value); setApiTestResult('idle'); }}
-                className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 rounded-phi-lg text-slate-200 focus:border-purple-500/50 focus:outline-none transition-colors font-mono text-phi-sm"
-                placeholder="gpt-4o-mini"
-              />
-              <p className="text-phi-xs text-slate-600 mt-1">The model ID your provider expects (e.g. gpt-4o-mini, claude-sonnet-4-5-20250929, llama-3.1-8b-instant)</p>
-            </div>
-
-            <div className="flex items-center gap-phi-3">
-              <button
-                onClick={async () => {
-                  if (!settings.llmApiEndpoint || !settings.llmApiKey) {
-                    setApiTestResult('error');
-                    setApiTestMessage('Enter an endpoint and API key first');
-                    return;
-                  }
-                  setApiTestResult('testing');
-                  try {
-                    const ep = settings.llmApiEndpoint.replace(/\/+$/, '');
-                    const res = await fetch(`${ep}/models`, {
-                      headers: { 'Authorization': `Bearer ${settings.llmApiKey}` },
-                      signal: AbortSignal.timeout(10000),
-                    });
-                    if (res.ok) {
-                      setApiTestResult('success');
-                      setApiTestMessage('Connected!');
-                      // Re-detect backend so the app picks up cloud AI
-                      resetBackendDetection();
-                      const ollamaOk = await isOllamaAvailable();
-                      setOllamaStatus(ollamaOk);
-                      setActiveBackend(getActiveBackend());
-                      if (ollamaOk) {
-                        const models = await listOllamaModels();
-                        setOllamaLiveModels(models);
-                      }
-                    } else {
-                      setApiTestResult('error');
-                      setApiTestMessage(`HTTP ${res.status} — check your endpoint and key`);
-                    }
-                  } catch (err) {
-                    setApiTestResult('error');
-                    setApiTestMessage(err instanceof Error ? err.message : 'Connection failed');
-                  }
-                }}
-                disabled={apiTestResult === 'testing'}
-                className="px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 hover:bg-white/10 rounded-phi-lg text-phi-sm text-slate-300 flex items-center gap-phi-2 transition-colors disabled:opacity-50"
-              >
-                {apiTestResult === 'testing' ? (
-                  <><Loader2 size={14} className="animate-spin" /> Testing...</>
-                ) : (
-                  <><RefreshCw size={14} /> Test Connection</>
-                )}
-              </button>
-
-              {apiTestResult === 'success' && (
-                <span className="text-phi-sm text-emerald-400 flex items-center gap-1">
-                  <Check size={14} /> {apiTestMessage}
-                </span>
-              )}
-              {apiTestResult === 'error' && (
-                <span className="text-phi-sm text-red-400 flex items-center gap-1">
-                  <AlertCircle size={14} /> {apiTestMessage}
-                </span>
-              )}
-            </div>
-
-            {settings.llmApiEndpoint && settings.llmApiKey && apiTestResult === 'success' && (
-              <p className="text-phi-xs text-emerald-400/70">
-                Cloud AI will be used for all AI features. Clear the endpoint to use local AI instead.
-              </p>
-            )}
-          </div>
-        </section>
-
-        {/* ===== VOICE ===== */}
-        <section className="space-y-phi-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
-              <Volume2 size={20} /> Voice
-            </h3>
-            <button
-              onClick={recheckVoiceStatus}
-              disabled={recheckingVoice}
-              className="px-phi-3 py-1.5 rounded-phi-md text-phi-xs text-slate-400 border border-white/10 hover:bg-white/[0.04] hover:text-slate-300 transition-colors disabled:opacity-50 flex items-center gap-phi-2"
-            >
-              {recheckingVoice ? (
-                <><Loader2 size={12} className="animate-spin" /> Checking...</>
-              ) : (
-                <><RefreshCw size={12} /> Detect Installed</>
-              )}
-            </button>
-          </div>
-          <div className="space-y-phi-4 pl-phi-5">
-            {!piperInstalled ? (
-              <div className="p-phi-4 bg-amber-900/10 border border-amber-500/20 rounded-phi-lg">
-                <p className="text-phi-sm text-amber-300 mb-phi-2">Voice engine needs setup</p>
-                <p className="text-phi-xs text-slate-400 mb-phi-3">
-                  Download the built-in voice engine (~15MB) for natural-sounding speech. Runs locally, no internet needed after install.
-                </p>
-                <button
-                  onClick={async () => {
-                    setDownloadingVoice('piper-binary');
-                    setDownloadProgress('Downloading voice engine...');
-                    try {
-                      const { installPiper } = await import('../../services/piperService');
-                      await installPiper();
-                      setPiperInstalled(true);
-                      setDownloadProgress('Voice engine installed!');
-                      const status = await getPiperStatus();
-                      setPiperVoiceStatus(status.voices);
-                      eventBus.emit(EVENTS.TTS_ENGINE_CHANGED, null);
-                    } catch (err) {
-                      setDownloadProgress(`Install failed: ${err}`);
-                    } finally {
-                      setTimeout(() => {
-                        setDownloadingVoice(null);
-                        setDownloadProgress('');
-                      }, 3000);
-                    }
-                  }}
-                  disabled={downloadingVoice !== null}
-                  className="px-phi-4 py-phi-3 bg-purple-600 hover:bg-purple-500 text-white rounded-phi-lg text-phi-sm font-medium flex items-center gap-phi-2 transition-all duration-300 disabled:opacity-50 hover:shadow-glow-purple"
-                >
-                  {downloadingVoice === 'piper-binary' ? (
-                    <><Loader2 size={16} className="animate-spin" /> {downloadProgress}</>
-                  ) : (
-                    <><Download size={16} /> Install Voice Engine</>
-                  )}
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="text-phi-sm text-emerald-400 flex items-center gap-phi-2">
-                  <Check size={16} /> Voice engine ready
-                </p>
-
-                {/* Voice cards */}
-                <div className="space-y-phi-3">
-                  <label className="block text-phi-sm text-slate-400">Available Voices</label>
-                  {PIPER_VOICES.map(v => {
-                    const status = piperVoiceStatus.find(s => s.id === v.id);
-                    const isDownloading = downloadingVoice === v.id;
-                    const isActive = settings.ttsVoice === v.id;
-                    return (
-                      <div key={v.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                        isActive && status?.installed
-                          ? 'bg-purple-900/20 border-purple-500/40 shadow-md shadow-purple-500/10'
-                          : 'bg-white/5 border-white/10'
-                      }`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                            isActive && status?.installed ? 'bg-purple-500/20' : 'bg-white/[0.04]'
-                          }`}>
-                            {isActive && status?.installed ? (
-                              <Check size={16} className="text-purple-400" />
-                            ) : (
-                              <Volume2 size={16} className="text-slate-500" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-slate-200">
-                              {v.name}
-                              {v.recommended && <span className="ml-2 text-xs text-purple-400">Recommended</span>}
-                            </p>
-                            <p className="text-xs text-slate-500">{v.quality} quality — {v.size}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {status?.installed ? (
-                            isActive ? (
-                              <span className="px-3 py-1.5 rounded-lg text-xs text-purple-300 bg-purple-500/10 border border-purple-500/20">Active</span>
-                            ) : (
-                              <button
-                                onClick={() => { update('ttsVoice', v.id); eventBus.emit(EVENTS.TTS_ENGINE_CHANGED, null); }}
-                                className="px-3 py-1.5 rounded-lg text-xs bg-white/10 text-slate-300 border border-white/10 hover:bg-purple-500/20 hover:border-purple-500/30 hover:text-purple-300 transition-colors"
-                              >
-                                Select
-                              </button>
-                            )
-                          ) : (
-                            <button
-                              onClick={async () => {
-                                setDownloadingVoice(v.id);
-                                setDownloadProgress(`Downloading ${v.name}...`);
-                                setVoiceError(null);
-                                try {
-                                  const { installVoice } = await import('../../services/piperService');
-                                  await installVoice(v.id);
-                                  const newStatus = await getPiperStatus();
-                                  setPiperVoiceStatus(newStatus.voices);
-                                  // Only set as active if download actually succeeded
-                                  const installed = newStatus.voices.find(s => s.id === v.id);
-                                  if (installed?.installed) {
-                                    update('ttsVoice', v.id);
-                                    eventBus.emit(EVENTS.TTS_ENGINE_CHANGED, null);
-                                  }
-                                } catch (err) {
-                                  const msg = err instanceof Error ? err.message : String(err);
-                                  setVoiceError(`Failed to download ${v.name}: ${msg}`);
-                                } finally {
-                                  setDownloadingVoice(null);
-                                  setDownloadProgress('');
-                                }
-                              }}
-                              disabled={downloadingVoice !== null}
-                              className="px-3 py-1.5 bg-white/10 hover:bg-white/15 border border-white/10 rounded-lg text-xs text-slate-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                            >
-                              {isDownloading ? (
-                                <><Loader2 size={12} className="animate-spin" /> Downloading...</>
-                              ) : (
-                                <><Download size={12} /> Download</>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Voice error banner */}
-                {voiceError && (
-                  <div className="flex items-start gap-phi-3 p-phi-4 bg-red-900/10 border border-red-500/20 rounded-phi-lg">
-                    <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-phi-sm text-red-300">{voiceError}</p>
-                      <button
-                        onClick={recheckVoiceStatus}
-                        className="mt-phi-2 text-phi-xs text-red-400 hover:text-red-300 underline transition-colors"
-                      >
-                        Try again
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </section>
-
-        {/* ===== SPEECH RECOGNITION ===== */}
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-            <Mic size={18} /> Speech Recognition
-          </h3>
-          <div className="pl-6">
-            <span className="flex items-center gap-1.5 text-sm text-emerald-400">
-              <Check size={14} /> Built-in speech recognition active
-            </span>
-            <p className="text-xs text-slate-500 mt-1">
-              Uses your system's built-in speech recognition. No download needed.
-            </p>
-          </div>
-        </section>
-
-        {/* ===== COMPANION ===== */}
-        <section className="space-y-phi-4">
-          <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
-            <Users size={20} /> AI Companion
-          </h3>
-          <div className="space-y-phi-3 pl-phi-5">
-            {companions.length > 0 ? (
-              <div className="grid grid-cols-2 gap-phi-3">
-                {companions.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => update('activeCompanion', c.id)}
-                    className={`p-phi-4 rounded-phi-lg border text-left transition-all duration-300 ${
-                      settings.activeCompanion === c.id
-                        ? 'bg-purple-900/25 border-purple-500/60 shadow-glow-purple'
-                        : 'bg-white/[0.05] border-white/10 hover:border-white/20 hover:bg-white/[0.08]'
-                    }`}
-                  >
-                    <p className="font-bold text-slate-200 text-phi-sm">{c.name}</p>
-                    <p className="text-phi-xs text-purple-400">{c.role}</p>
-                    <p className="text-phi-xs text-slate-500 mt-phi-2 line-clamp-2">{c.description}</p>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-phi-sm text-slate-500 italic">Loading companions...</p>
-            )}
-          </div>
-        </section>
-
-        {/* ===== YOUR BRAND ===== */}
-        <section className="space-y-phi-4">
-          <h3 className="text-phi-lg font-bold text-slate-300 flex items-center gap-phi-3">
-            <Tag size={20} /> Your Brand
-          </h3>
-          <p className="text-phi-xs text-slate-500 pl-phi-5">
-            Used in AI-generated content, exports, and thumbnails. Leave blank for generic defaults.
-          </p>
-          <div className="space-y-phi-4 pl-phi-5">
-            <div>
-              <label className="block text-phi-sm text-slate-400 mb-phi-2">Podcast / Show Name</label>
-              <input
-                type="text"
-                value={settings.podcastName}
-                onChange={(e) => update('podcastName', e.target.value)}
-                className="w-full px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 rounded-phi-lg text-slate-200 focus:border-purple-500/50 focus:outline-none transition-colors"
-                placeholder="My Podcast"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Host Name</label>
-              <input
-                type="text"
-                value={settings.hostName}
-                onChange={(e) => update('hostName', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
-                placeholder="Your name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Organization</label>
-              <input
-                type="text"
-                value={settings.organizationName}
-                onChange={(e) => update('organizationName', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
-                placeholder="Your organization (optional)"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Website URL</label>
-              <input
-                type="text"
-                value={settings.websiteUrl}
-                onChange={(e) => update('websiteUrl', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
-                placeholder="https://yoursite.com (optional)"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* ===== STUDIO PREFERENCES ===== */}
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-            <Cpu size={18} /> Studio Preferences
-          </h3>
-          <div className="space-y-5 pl-6">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.autoTranscribe}
-                onChange={(e) => update('autoTranscribe', e.target.checked)}
-                className="w-5 h-5 accent-purple-500"
-              />
-              <div>
-                <p className="text-slate-300">Auto-transcribe recordings</p>
-                <p className="text-xs text-slate-500">Automatically transcribe after recording stops</p>
-              </div>
-            </label>
-          </div>
-        </section>
-
-        {/* ===== OUTPUT ===== */}
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-            <FolderOpen size={18} /> Output
-          </h3>
-          <div className="space-y-5 pl-6">
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Default Output Folder</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={settings.outputFolder}
-                  readOnly
-                  className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:outline-none cursor-default"
-                />
-                <FilePickerButton
-                  mode="folder"
-                  label="Browse"
-                  currentPath={settings.outputFolder}
-                  onSelect={(path) => {
-                    if (typeof path === 'string') {
-                      update('outputFolder', path);
-                      setDirsCreated(false);
-                    }
-                  }}
-                />
-              </div>
-              <p className="text-xs text-slate-600 mt-1">All recordings, transcripts, and exports save here</p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={async () => {
-                  setCreatingDirs(true);
-                  try {
-                    await ensureDirectories();
-                    setDirsCreated(true);
-                    setTimeout(() => setDirsCreated(false), 3000);
-                  } catch (err) {
-                    console.error('Failed to create directories:', err);
-                  } finally {
-                    setCreatingDirs(false);
-                  }
-                }}
-                disabled={creatingDirs}
-                className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-sm text-slate-300 transition-colors disabled:opacity-50"
-              >
-                {creatingDirs ? (
-                  <><Loader2 size={14} className="animate-spin" /> Creating...</>
-                ) : dirsCreated ? (
-                  <><Check size={14} className="text-emerald-400" /> Folders Ready</>
-                ) : (
-                  <><FolderPlus size={14} /> Create Output Folders</>
-                )}
-              </button>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-              <p className="text-xs text-slate-400 mb-2 font-medium">Output folder structure:</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-500 font-mono">
-                {getOutputStructure().map(s => (
-                  <span key={s.folder}>{s.folder}/ <span className="text-slate-600">— {s.description}</span></span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ===== ADVANCED ===== */}
-        <section className="space-y-4">
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-300 transition-colors"
-          >
-            {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            Advanced Settings
-          </button>
-          {showAdvanced && (
-            <div className="space-y-5 pl-6 border-l border-white/10">
-              <div>
-                <label className="block text-sm text-slate-400 mb-2">AI Models Path</label>
-                <input
-                  type="text"
-                  value={settings.localModelPath}
-                  onChange={(e) => update('localModelPath', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-slate-200 focus:border-purple-500/50 focus:outline-none"
-                />
-                <p className="text-xs text-slate-600 mt-1">Path to Ollama models directory</p>
-              </div>
-              <p className="text-xs text-slate-500">
-                Power users: Install additional models with Ollama CLI. They'll appear in the model selector automatically.
-              </p>
-            </div>
+        {/* Ollama status */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-2) var(--space-3)',
+          background: 'var(--bg-surface)',
+          borderRadius: 'var(--radius-md)',
+        }}>
+          {checking ? (
+            <Loader2 size={14} style={{ color: 'var(--gold)', animation: 'sacred-spin 1.618s linear infinite' }} />
+          ) : ollamaOk ? (
+            <div className="status-dot online" />
+          ) : (
+            <div className="status-dot offline" />
           )}
-        </section>
-
-        {/* ===== YOUR JOURNEY ===== */}
-        <section className="space-y-4">
-          <h3 className="text-xl font-bold text-slate-300 flex items-center gap-2">
-            <Sparkles size={18} /> Your Journey
-          </h3>
-          <div className="grid grid-cols-2 gap-3 pl-6">
-            <div className="p-4 bg-gradient-to-br from-purple-900/15 to-transparent border border-purple-500/10 rounded-xl text-center">
-              <p className="text-2xl font-bold text-purple-300">{(() => {
-                try {
-                  const s = localStorage.getItem('dsds-settings');
-                  return s ? (JSON.parse(s).totalSessions || 0) : 0;
-                } catch { return 0; }
-              })()}</p>
-              <p className="text-xs text-slate-500 mt-1">Sessions recorded</p>
-            </div>
-            <div className="p-4 bg-gradient-to-br from-cyan-900/15 to-transparent border border-cyan-500/10 rounded-xl text-center">
-              <p className="text-2xl font-bold text-cyan-300">{(() => {
-                try {
-                  const s = localStorage.getItem('dsds-settings');
-                  return s ? (JSON.parse(s).totalEnhancements || 0) : 0;
-                } catch { return 0; }
-              })()}</p>
-              <p className="text-xs text-slate-500 mt-1">AI enhancements</p>
-            </div>
-          </div>
-          <p className="text-xs text-slate-600 pl-6 italic">
-            Every session builds momentum. Keep creating.
-          </p>
-        </section>
-
-        {/* ===== SAVE ===== */}
-        <div className="flex justify-end gap-phi-4 pt-phi-5 border-t border-white/10">
+          <span className="mono" style={{
+            fontSize: '11px',
+            color: ollamaOk ? 'var(--green)' : 'var(--text-dim)',
+          }}>
+            {checking ? 'Checking...' : ollamaOk ? 'Ollama connected' : 'Ollama not detected'}
+          </span>
           <button
-            onClick={() => {
-              setSettings({ ...DEFAULTS });
-              setSaved(false);
+            onClick={checkOllama}
+            style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-dim)',
+              padding: '4px',
             }}
-            className="px-phi-4 py-phi-3 bg-white/[0.05] border border-white/10 hover:bg-white/10 rounded-phi-lg flex items-center gap-phi-2 text-slate-300 transition-all duration-300 hover:shadow-phi-md"
+            title="Refresh"
           >
-            <RefreshCw size={18} />
-            Reset Defaults
+            <RefreshCw size={12} />
           </button>
-          <button
-            onClick={saveSettings}
-            className={`px-phi-5 py-phi-3 rounded-phi-lg font-bold flex items-center gap-phi-2 transition-all duration-300 ${
-              saved
-                ? 'bg-emerald-600 text-white shadow-glow-cyan'
-                : 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white hover:scale-[1.02] hover:shadow-glow-purple'
-            }`}
+        </div>
+
+        {/* Model selector */}
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Model</label>
+          <select
+            value={settings.llmModel}
+            onChange={(e) => updateSetting('llmModel', e.target.value)}
+            style={selectStyle}
           >
-            <Save size={18} />
-            {saved ? 'Saved!' : 'Save Settings'}
-          </button>
+            {models.length > 0 ? (
+              models.map(m => <option key={m} value={m}>{m}</option>)
+            ) : (
+              <option value={settings.llmModel}>{settings.llmModel || 'No models found'}</option>
+            )}
+          </select>
+        </div>
+
+        {/* Silence threshold */}
+        <div style={fieldStyle}>
+          <label style={labelStyle}>
+            Pause before AI responds: {(settings.silenceThreshold / 1000).toFixed(1)}s
+          </label>
+          <input
+            type="range"
+            min={500}
+            max={5000}
+            step={100}
+            value={settings.silenceThreshold}
+            onChange={(e) => updateSetting('silenceThreshold', Number(e.target.value))}
+          />
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '10px',
+            color: 'var(--text-dim)',
+          }}>
+            <span>Quick (0.5s)</span>
+            <span>Patient (5s)</span>
+          </div>
         </div>
       </div>
+
+      {/* ─── Section 2: Voice ─── */}
+      <div style={sectionStyle}>
+        <div style={sectionTitleStyle}>
+          <Volume2 size={18} style={{ color: 'var(--gold)' }} />
+          AI Voice
+        </div>
+
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Piper voice</label>
+          <select
+            value={settings.ttsVoice}
+            onChange={(e) => updateSetting('ttsVoice', e.target.value)}
+            style={selectStyle}
+          >
+            {PIPER_VOICES.map(v => (
+              <option key={v.id} value={v.id}>{v.name} — {v.description}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ─── Section 3: Output ─── */}
+      <div style={sectionStyle}>
+        <div style={sectionTitleStyle}>
+          <FolderOpen size={18} style={{ color: 'var(--gold)' }} />
+          Output
+        </div>
+
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Save recordings to</label>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <input
+              type="text"
+              value={settings.outputFolder || '~/Documents/Sovereign Podcaster'}
+              onChange={(e) => updateSetting('outputFolder', e.target.value)}
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <FilePickerButton
+              onSelect={(path) => updateSetting('outputFolder', path)}
+              label="Browse"
+            />
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+        }}>
+          <input
+            type="checkbox"
+            checked={settings.autoTranscribe}
+            onChange={(e) => updateSetting('autoTranscribe', e.target.checked)}
+            style={{ accentColor: 'var(--gold)' }}
+          />
+          <label style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+            Auto-transcribe after recording
+          </label>
+        </div>
+      </div>
+
+      {/* Footer note */}
+      <p className="mono" style={{
+        textAlign: 'center',
+        fontSize: '10px',
+        color: 'var(--text-dim)',
+        padding: 'var(--space-3) 0',
+      }}>
+        All settings stored locally · Nothing leaves your machine
+      </p>
     </div>
   );
 }
