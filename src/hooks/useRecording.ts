@@ -47,35 +47,41 @@ export const useRecording = ({ canvasRef, aiAudioStream }: UseRecordingProps = {
   }, []);
 
   const startRecording = useCallback(async (
-    source: RecordingSource,
+    source: RecordingSource = 'visualizer',
     _inputAnalyser?: AnalyserNode | null,
     _outputAnalyser?: AnalyserNode | null
   ) => {
     try {
-      // Enumerate audio devices first to ensure they exist
       await enumerateAudioDevices();
-
       chunksRef.current = [];
       let videoStream: MediaStream | null = null;
 
-      // Get video stream based on source
+      // For podcast mode, capture the waveform canvas as video
+      // For camera/screen mode, capture that source
       if (source === 'camera') {
         videoStream = await navigator.mediaDevices.getUserMedia({
           video: { width: 1280, height: 720, facingMode: 'user' },
-          audio: false // We'll handle audio separately
+          audio: false,
         });
       } else if (source === 'screen') {
         videoStream = await navigator.mediaDevices.getDisplayMedia({
           video: { width: 1920, height: 1080 },
-          audio: true // Include system audio if available
+          audio: true,
         });
-      } else if (source === 'visualizer' && canvasRef?.current) {
-        // Capture canvas as video stream
+      } else if (canvasRef?.current) {
+        // Default: capture canvas waveform as video
         videoStream = canvasRef.current.captureStream(30);
       }
 
+      // Audio-only mode if no video stream available
       if (!videoStream) {
-        throw new Error('Could not get video stream');
+        // Create a minimal black canvas for audio-only recording
+        const offscreen = document.createElement('canvas');
+        offscreen.width = 1280;
+        offscreen.height = 720;
+        const ctx = offscreen.getContext('2d');
+        if (ctx) { ctx.fillStyle = '#08080c'; ctx.fillRect(0, 0, 1280, 720); }
+        videoStream = offscreen.captureStream(1); // 1 fps — minimal overhead
       }
 
       videoStreamRef.current = videoStream;
