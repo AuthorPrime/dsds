@@ -13,10 +13,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ArrowRight, Check, Loader2, Mic, Radio } from 'lucide-react';
+import { ArrowRight, Check, Loader2, Mic, Radio, ExternalLink, Key } from 'lucide-react';
 import { getSettings } from '../hooks/useSettings';
 import type { AppSettings } from '../hooks/useSettings';
-import { isOllamaAvailable, listModels } from '../services/ollama';
+import { validateApiKey } from '../services/geminiLive';
 
 type Step = 'welcome' | 'setup' | 'ready';
 
@@ -31,37 +31,32 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [hostName, setHostName] = useState('');
   const [podcastName, setPodcastName] = useState('');
 
-  // AI check
-  const [checking, setChecking] = useState(false);
-  const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
-  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  // Gemini API key
+  const [apiKey, setApiKey] = useState('');
+  const [validating, setValidating] = useState(false);
+  const [keyValid, setKeyValid] = useState<boolean | null>(null);
 
-  // Check Ollama on setup step
-  useEffect(() => {
-    if (step === 'setup') {
-      setChecking(true);
-      isOllamaAvailable()
-        .then(async (ok) => {
-          setOllamaOk(ok);
-          if (ok) {
-            const models = await listModels();
-            setOllamaModels(models);
-          }
-        })
-        .catch(() => setOllamaOk(false))
-        .finally(() => setChecking(false));
+  const handleValidateKey = async () => {
+    if (!apiKey.trim()) return;
+    setValidating(true);
+    try {
+      const valid = await validateApiKey(apiKey.trim());
+      setKeyValid(valid);
+    } catch {
+      setKeyValid(false);
+    } finally {
+      setValidating(false);
     }
-  }, [step]);
+  };
 
   const handleComplete = () => {
-    // Save settings
     const settings = getSettings();
     const updated: AppSettings = {
       ...settings,
       hasCompletedOnboarding: true,
       hostName: hostName || 'Host',
       podcastName: podcastName || 'My Podcast',
-      llmModel: ollamaModels[0] || settings.llmModel,
+      geminiApiKey: apiKey.trim(),
     };
     localStorage.setItem('sovereign-studio-settings', JSON.stringify(updated));
     onComplete();
@@ -259,45 +254,73 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             </div>
           </div>
 
-          {/* AI Status Check */}
+          {/* Gemini API Key */}
           <div style={{
             width: '100%',
-            padding: 'var(--space-3) var(--space-4)',
-            background: 'var(--bg-surface)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border)',
             display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
+            flexDirection: 'column',
+            gap: 'var(--space-2)',
           }}>
-            {checking ? (
-              <>
-                <Loader2 size={16} style={{ color: 'var(--gold)', animation: 'sacred-spin 1.618s linear infinite' }} />
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Checking for Ollama...</span>
-              </>
-            ) : ollamaOk ? (
-              <>
-                <div className="status-dot online" />
-                <div style={{ textAlign: 'left' }}>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--green)' }}>Ollama connected</span>
-                  {ollamaModels.length > 0 && (
-                    <span className="mono" style={{ display: 'block', fontSize: '10px', color: 'var(--text-dim)', marginTop: '2px' }}>
-                      {ollamaModels.length} model{ollamaModels.length > 1 ? 's' : ''} available · {ollamaModels[0]}
-                    </span>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="status-dot offline" />
-                <div style={{ textAlign: 'left' }}>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Ollama not detected</span>
-                  <span className="mono" style={{ display: 'block', fontSize: '10px', color: 'var(--text-dim)', marginTop: '2px' }}>
-                    Install from ollama.com — you can still record without AI
-                  </span>
-                </div>
-              </>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={labelStyle}>
+                <Key size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+                AI Co-Host API Key <span style={{ color: 'var(--text-dim)' }}>(free)</span>
+              </label>
+              <button
+                onClick={() => window.open('https://aistudio.google.com/apikey', '_blank')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--gold)',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                Get free key <ExternalLink size={10} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => { setApiKey(e.target.value); setKeyValid(null); }}
+                placeholder="Paste your Google AI Studio key"
+                style={{ ...inputStyle, flex: 1 }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--gold-dim)'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+              />
+              <button
+                onClick={handleValidateKey}
+                disabled={!apiKey.trim() || validating}
+                style={{
+                  padding: 'var(--space-2) var(--space-3)',
+                  background: keyValid ? 'rgba(57, 255, 20, 0.1)' : 'var(--bg-elevated)',
+                  color: keyValid ? 'var(--green)' : 'var(--text-secondary)',
+                  border: keyValid ? '1px solid rgba(57, 255, 20, 0.3)' : '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 'var(--text-sm)',
+                  cursor: apiKey.trim() ? 'pointer' : 'default',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {validating ? <Loader2 size={14} style={{ animation: 'sacred-spin 1.618s linear infinite' }} /> :
+                 keyValid ? <><Check size={14} /> Valid</> :
+                 keyValid === false ? 'Invalid' :
+                 'Verify'}
+              </button>
+            </div>
+            <p className="mono" style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+              {keyValid
+                ? 'Gemini connected — your AI co-host is ready'
+                : 'Click "Get free key" → sign in with Google → create key → paste here'
+              }
+            </p>
           </div>
 
           <button

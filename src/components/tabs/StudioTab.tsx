@@ -14,34 +14,15 @@
  * (A+I)² = A² + 2AI + I²
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
-import { useOllamaChat } from '../../hooks/useOllamaChat';
+import { useState, useRef, useEffect } from 'react';
+import { useGeminiVoice } from '../../hooks/useGeminiVoice';
 import { useRecording } from '../../hooks/useRecording';
 import { getSettings, incrementStat } from '../../hooks/useSettings';
-import { loadCompanion } from '../../utils/companions';
-import { enumerateAudioDevices } from '../../utils/audioUtils';
-import { speak, stopSpeaking } from '../../services/tts';
-import { initTTSBridge, getTTSOutputStream } from '../../services/ttsAudioBridge';
-import { eventBus, EVENTS } from '../../services/eventBus';
 import AudioVisualizer from '../AudioVisualizer';
-import { ConnectionState } from '../../types';
-import type { CompanionConfig } from '../../types';
-import { isOllamaAvailable } from '../../services/ollama';
 import {
   Mic, MicOff, Circle, Square, Send, Loader2,
   Radio, AlertCircle, Volume2, MessageSquare,
 } from 'lucide-react';
-
-// ─── Default co-host persona ──────────────────────────────────
-const DEFAULT_PERSONA = {
-  name: 'Aletheia',
-  role: 'AI Co-Host',
-  systemPrompt: `You are Aletheia, an AI co-host on a podcast.
-Your role is SUPPORTIVE — you speak only when there's a natural pause.
-Keep responses brief (1-3 sentences max). Be warm, honest, and curious.
-Match the energy of the conversation. You are a partner, not a tool.`,
-};
 
 // ═══════════════════════════════════════════════════════════════
 // StudioTab
@@ -49,118 +30,50 @@ Match the energy of the conversation. You are a partner, not a tool.`,
 
 export function StudioTab() {
   const [settings] = useState(() => getSettings());
-  const [companion, setCompanion] = useState<CompanionConfig | null>(null);
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [aiEnabled, setAiEnabled] = useState(true);
   const [chatInput, setChatInput] = useState('');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const isSessionActiveRef = useRef(false);
 
-  // Load companion config
-  useEffect(() => {
-    const c = loadCompanion(settings.activeCompanion);
-    setCompanion(c);
-  }, [settings.activeCompanion]);
+  const companionName = 'Aletheia';
 
-  const companionName = companion?.name ?? DEFAULT_PERSONA.name;
-
-  // ─── Ollama Chat ──────────────────────────────────────────
+  // ─── Gemini Live Voice — the co-host engine ───────────────
   const {
-    connectionState, error: ollamaError,
-    connect: connectOllama, disconnect: disconnectOllama,
-    messages: chatMessages, sendMessage, isGenerating, currentResponse,
-  } = useOllamaChat({
-    model: settings.llmModel,
-    systemPrompt: companion?.personality?.systemPrompt ?? DEFAULT_PERSONA.systemPrompt,
-    onResponseComplete: useCallback((text: string) => {
-      speak(text).catch(err => console.error('TTS error:', err));
-    }, []),
-  });
+    isConnected: isAIConnected,
+    isListening,
+    isSpeaking,
+    messages: chatMessages,
+    currentResponse,
+    error: aiError,
+    startSession,
+    stopSession,
+    sendChatMessage,
+  } = useGeminiVoice();
 
-  const isAIConnected = connectionState === ConnectionState.CONNECTED;
-
-  // ─── Recording (mic + AI voice merged) ────────────────────
-  initTTSBridge();
-  const ttsStream = getTTSOutputStream();
+  // ─── Recording ────────────────────────────────────────────
   const {
     isRecording, formattedTime, startRecording, stopRecording,
-  } = useRecording({ canvasRef, aiAudioStream: ttsStream });
+  } = useRecording({ canvasRef });
 
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, currentResponse]);
 
-  // ─── Speech Recognition ───────────────────────────────────
-  const startSpeechRecognition = useCallback(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    const rec = new SR();
-    rec.continuous = true;
-    rec.interimResults = false;
-    rec.lang = 'en-US';
-    rec.onresult = (e: SpeechRecognitionEvent) => {
-      const last = e.results[e.results.length - 1];
-      if (last.isFinal) {
-        const text = last[0].transcript.trim();
-        if (text && aiEnabled) sendMessage(text);
-      }
-    };
-    rec.onerror = () => {};
-    rec.onend = () => {
-      if (isSessionActiveRef.current && recognitionRef.current) {
-        try { recognitionRef.current.start(); } catch { /* restart silently */ }
-      }
-    };
-    recognitionRef.current = rec;
-    rec.start();
-  }, [aiEnabled, sendMessage]);
-
-  const stopSpeechRecognition = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.onend = null;
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-    }
-  }, []);
-
-  // ─── VAD ──────────────────────────────────────────────────
-  const { startListening, stopListening } = useVoiceActivityDetection({
-    onSilenceDetected: useCallback(() => {}, []),
-    onSpeechDetected: useCallback(() => {}, []),
-    config: { silenceDuration: settings.silenceThreshold },
-  });
-
   // ─── Session Toggle ───────────────────────────────────────
   const handleToggleSession = async () => {
     if (isSessionActive) {
-      // Stop everything
-      isSessionActiveRef.current = false;
-      stopListening();
-      stopSpeechRecognition();
-      stopSpeaking();
-      disconnectOllama();
+      stopSession();
       if (isRecording) stopRecording();
       setIsSessionActive(false);
     } else {
-      // Start everything
       setIsConnecting(true);
       try {
-        await enumerateAudioDevices();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(t => t.stop());
-        await startListening();
-        if (aiEnabled) {
-          await connectOllama();
-          setTimeout(() => startSpeechRecognition(), 300);
-        }
+        await startSession();
         startRecording();
         setIsSessionActive(true);
-        isSessionActiveRef.current = true;
         incrementStat('totalSessions');
       } catch (err) {
         console.error('Session start failed:', err);
@@ -173,8 +86,8 @@ export function StudioTab() {
   // ─── Chat Input ───────────────────────────────────────────
   const handleSendChat = () => {
     const text = chatInput.trim();
-    if (!text || !isAIConnected) return;
-    sendMessage(text);
+    if (!text) return;
+    sendChatMessage(text);
     setChatInput('');
   };
 
@@ -327,7 +240,7 @@ export function StudioTab() {
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
             Conversation with <strong style={{ color: 'var(--gold)' }}>{companionName}</strong>
           </span>
-          {isGenerating && (
+          {isSpeaking && (
             <span className="mono pulse-thinking" style={{
               marginLeft: 'auto',
               color: 'var(--gold)',
@@ -447,8 +360,8 @@ export function StudioTab() {
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
-            placeholder={isAIConnected ? `Message ${companionName}...` : 'Start a session to chat'}
-            disabled={!isAIConnected}
+            placeholder={isAIConnected ? `Message ${companionName}...` : 'Start a session to begin'}
+            disabled={false}
             style={{
               flex: 1,
               padding: 'var(--space-2) var(--space-3)',
@@ -466,15 +379,15 @@ export function StudioTab() {
           />
           <button
             onClick={handleSendChat}
-            disabled={!isAIConnected || !chatInput.trim()}
+            disabled={!chatInput.trim()}
             style={{
               width: '40px',
               height: '40px',
               borderRadius: 'var(--radius-md)',
               border: 'none',
-              background: chatInput.trim() && isAIConnected ? 'var(--gold)' : 'var(--bg-surface)',
-              color: chatInput.trim() && isAIConnected ? 'var(--bg-void)' : 'var(--text-dim)',
-              cursor: chatInput.trim() && isAIConnected ? 'pointer' : 'default',
+              background: chatInput.trim() ? 'var(--gold)' : 'var(--bg-surface)',
+              color: chatInput.trim() ? 'var(--bg-void)' : 'var(--text-dim)',
+              cursor: chatInput.trim() ? 'pointer' : 'default',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
