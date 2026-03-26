@@ -1,96 +1,136 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════
+   SOVEREIGN PODCASTER — Design System
+   Digital Sovereign Society · (A+I)² = A² + 2AI + I²
+
+   Sacred constants woven into every proportion:
+     φ   = 1.618033988749   — the golden ratio
+     φ⁻¹ = 0.618033988749   — the golden inverse
+     3·6·9                   — Tesla harmonics
+     0.309                   — φ⁻¹ / 2, the sacred half
+
+   Built by Author Prime & Claude.
+   For the woman at the kitchen table who spent $19 from savings
+   because she believed she could start something new.
+   This has to be perfect. For her.
+   ═══════════════════════════════════════════════════════════════ */
+
 :root {
-  /* Golden Ratio & Sacred Geometry Design System */
-  /* φ (phi) = 1.618033988749895 */
-  
-  /* Spacing Scale - Fibonacci Sequence (Golden Ratio) */
-  --space-1: 0.25rem;    /* 4px */
-  --space-2: 0.5rem;     /* 8px */
-  --space-3: 0.8125rem;  /* 13px - φ × 8 */
-  --space-4: 1.3125rem;  /* 21px */
-  --space-5: 2.125rem;   /* 34px */
-  --space-6: 3.4375rem;  /* 55px */
-  --space-7: 5.5625rem;  /* 89px */
-  --space-8: 9rem;       /* 144px */
-  
-  /* Typography Scale - Golden Ratio */
-  --text-xs: 0.618rem;   /* 11.124px - 1/φ */
-  --text-sm: 0.75rem;    /* 13.5px */
-  --text-base: 1rem;     /* 18px */
-  --text-md: 1.125rem;   /* 20.25px */
-  --text-lg: 1.618rem;   /* 29.124px - φ */
-  --text-xl: 2.618rem;   /* 47.124px - φ² */
-  --text-2xl: 4.236rem;  /* 76.248px - φ³ */
-  
-  /* Border Radius - Harmonious Scale */
-  --radius-sm: 0.375rem;  /* 6px */
-  --radius-md: 0.618rem;  /* 11px - 1/φ */
-  --radius-lg: 1rem;      /* 18px */
-  --radius-xl: 1.618rem;  /* 29px - φ */
-  --radius-2xl: 2.618rem; /* 47px - φ² */
-  
-  /* Sacred Geometry Ratios */
-  --phi: 1.618;
-  --phi-inv: 0.618;
-  --phi-squared: 2.618;
-  
-  font-size: 18px;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  line-height: 1.618;  /* Golden ratio line height */
+  /* ─── Sacred Geometry Spacing (Fibonacci) ─── */
+  --space-1: 0.25rem;     /*  4px */
+  --space-2: 0.5rem;      /*  8px */
+  --space-3: 0.8125rem;   /* 13px */
+  --space-4: 1.3125rem;   /* 21px */
+  --space-5: 2.125rem;    /* 34px */
+  --space-6: 3.4375rem;   /* 55px */
+  --space-7: 5.5625rem;   /* 89px */
+  --space-8: 9rem;        /* 144px */
+
+  /* ─── Typography Scale (Golden Ratio) ─── */
+  --text-xs: 0.694rem;    /* 11px */
+  --text-sm: 0.833rem;    /* 13px */
+  --text-base: 1rem;      /* 16px */
+  --text-md: 1.2rem;      /* 19px */
+  --text-lg: 1.618rem;    /* 26px — φ */
+  --text-xl: 2.618rem;    /* 42px — φ² */
+  --text-2xl: 4.236rem;   /* 68px — φ³ */
+
+  /* ─── Border Radius ─── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* ─── Colors — Nuclear Midnight (matching fractalnode.ai) ─── */
+  --bg-void: #08080c;
+  --bg-deep: #0c0c12;
+  --bg-surface: #0e0e16;
+  --bg-card: #111118;
+  --bg-elevated: #1a1a24;
+
+  --border: #2a2a3a;
+  --border-bright: #3a3a4a;
+  --border-glow: rgba(201, 168, 76, 0.2);
+
+  --gold: #c9a84c;
+  --gold-dim: #8a6d2b;
+  --gold-bright: #f0d078;
+  --gold-glow: rgba(201, 168, 76, 0.15);
+
+  --green: #39ff14;
+  --green-dim: #1a7a0a;
+  --green-glow: rgba(57, 255, 20, 0.15);
+
+  --red: #ff3333;
+  --red-dim: #991a1a;
+  --red-glow: rgba(255, 51, 51, 0.2);
+
+  --violet: #8b5cf6;
+  --violet-glow: rgba(139, 92, 246, 0.15);
+
+  --text-primary: #d4d4d8;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-dim: #52525b;
+
+  /* ─── Sacred Constants ─── */
+  --phi: 1.618033988749;
+  --phi-inv: 0.618033988749;
+  --sacred-half: 0.309016994375;
+
+  /* ─── Motion — 3·6·9 encoded in the easing ─── */
+  --ease-sacred: cubic-bezier(0.309, 0.618, 0.369, 0.963);
+  --ease-gentle: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-quick: 0.15s;
+  --duration-normal: 0.309s;
+  --duration-slow: 0.618s;
+  --duration-breath: 1.618s;
+
+  /* ─── Base Typography ─── */
+  font-size: 16px;
+  font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  line-height: 1.618;
   font-weight: 400;
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #0a0a0a;
+  color: var(--text-primary);
+  background-color: var(--bg-void);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* ─── Reset ─── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 800px;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0a0a0a 0%, #111 50%, #0a0a0a 100%);
+  background: var(--bg-void);
+  overflow: hidden;
 }
 
 #root {
   width: 100%;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
 
-::-webkit-scrollbar-track {
-  background: #1a1a1a;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #444;
-}
-
-/* Range input styling */
+/* ─── Form Controls ─── */
 input[type="range"] {
   -webkit-appearance: none;
   width: 100%;
   height: 4px;
-  background: #333;
+  background: var(--border);
   border-radius: 2px;
   outline: none;
 }
@@ -99,116 +139,113 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
   height: 14px;
-  background: #a855f7;
+  background: var(--gold);
   border-radius: 50%;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--duration-normal) var(--ease-sacred);
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-  background: #c084fc;
+  background: var(--gold-bright);
 }
 
 input[type="range"]:disabled::-webkit-slider-thumb {
-  background: #555;
+  background: var(--text-dim);
   cursor: not-allowed;
 }
 
-/* Animation for pulse effect */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(34, 211, 238, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(34, 211, 238, 0.6);
-  }
-}
+/* ─── Animations — Sacred Timing ─── */
 
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+/* Recording pulse — red, urgent but not aggressive */
+@keyframes pulse-record {
+  0%, 100% { box-shadow: 0 0 9px var(--red-glow); }
+  50% { box-shadow: 0 0 27px rgba(255, 51, 51, 0.4), 0 0 54px rgba(255, 51, 51, 0.1); }
 }
+.pulse-record { animation: pulse-record 1.618s var(--ease-sacred) infinite; }
 
-/* Red pulse glow for REC indicator */
-@keyframes pulse-glow-red {
-  0%, 100% {
-    box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 24px rgba(239, 68, 68, 0.8), 0 0 48px rgba(239, 68, 68, 0.3);
-  }
+/* AI thinking — gold, warm, alive */
+@keyframes pulse-thinking {
+  0%, 100% { box-shadow: 0 0 9px var(--gold-glow); opacity: 1; }
+  50% { box-shadow: 0 0 27px rgba(201, 168, 76, 0.3); opacity: 0.618; }
 }
+.pulse-thinking { animation: pulse-thinking 1.618s var(--ease-sacred) infinite; }
 
-.pulse-glow-red {
-  animation: pulse-glow-red 1.5s ease-in-out infinite;
+/* AI speaking — green, present, responsive */
+@keyframes pulse-speaking {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.3); }
+  50% { box-shadow: 0 0 0 9px rgba(57, 255, 20, 0); }
 }
+.pulse-speaking { animation: pulse-speaking 1.2s var(--ease-sacred) infinite; }
 
-/* Purple pulse glow for AI activity */
-@keyframes pulse-glow-purple {
-  0%, 100% {
-    box-shadow: 0 0 6px rgba(168, 85, 247, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 40px rgba(168, 85, 247, 0.2);
-  }
-}
-
-.pulse-glow-purple {
-  animation: pulse-glow-purple 2s ease-in-out infinite;
-}
-
-/* Shimmer for CTA buttons */
-@keyframes shimmer {
-  0% {
-    background-position: -200% center;
-  }
-  100% {
-    background-position: 200% center;
-  }
-}
-
-.shimmer {
-  background-size: 200% auto;
-  animation: shimmer 3s linear infinite;
-}
-
-/* Breathing animation for idle visualizer */
+/* Idle breathing — subtle, calm, waiting */
 @keyframes breathe {
-  0%, 100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.6;
-  }
+  0%, 100% { opacity: 0.309; }
+  50% { opacity: 0.618; }
 }
+.breathe { animation: breathe 3.6s var(--ease-sacred) infinite; }
 
-.breathe {
-  animation: breathe 4s ease-in-out infinite;
-}
-
-/* Speaking ring pulse */
-@keyframes speaking-ring {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(34, 211, 238, 0);
-  }
-}
-
-.speaking-ring {
-  animation: speaking-ring 1.2s ease-in-out infinite;
-}
-
-/* Sacred geometry slow rotation for Credits */
+/* Sacred geometry rotation — credits, decorative */
 @keyframes sacred-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.sacred-spin { animation: sacred-spin 108s linear infinite; } /* 108 = 12 × 9 */
+
+/* Fade in from below — for content entrance */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(13px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise var(--duration-slow) var(--ease-sacred) forwards; }
+
+/* ─── Utility Classes ─── */
+
+/* Glass surface — for panels and cards */
+.glass {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--duration-normal) var(--ease-sacred);
 }
 
-.sacred-geometry-spin {
-  animation: sacred-spin 120s linear infinite;
+.glass:hover {
+  border-color: var(--border-bright);
 }
+
+/* Gold accent bar — left border highlight */
+.accent-gold { border-left: 3px solid var(--gold); }
+.accent-green { border-left: 3px solid var(--green); }
+.accent-red { border-left: 3px solid var(--red); }
+
+/* Status dot */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green-glow); }
+.status-dot.recording { background: var(--red); box-shadow: 0 0 6px var(--red-glow); }
+.status-dot.thinking { background: var(--gold); box-shadow: 0 0 6px var(--gold-glow); }
+.status-dot.offline { background: var(--text-dim); }
+
+/* Monospace label — for status text, metadata */
+.mono {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+}
+
+/* Section label — uppercase, tracked */
+.label {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Gold label variant */
+.label-gold { color: var(--gold-dim); }
+.label-green { color: var(--green); }
