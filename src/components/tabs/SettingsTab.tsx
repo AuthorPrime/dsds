@@ -53,7 +53,7 @@ export function SettingsTab() {
   };
 
   const handleSave = () => {
-    localStorage.setItem('sovereign-studio-settings', JSON.stringify(settings));
+    localStorage.setItem('dsds-settings', JSON.stringify(settings));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

@@ -69,7 +69,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       podcastName: podcastName || 'My Podcast',
       geminiApiKey: apiKey.trim(),
     };
-    localStorage.setItem('sovereign-studio-settings', JSON.stringify(updated));
+    localStorage.setItem('dsds-settings', JSON.stringify(updated));
     onComplete();
   };
 
