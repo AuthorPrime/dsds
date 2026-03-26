@@ -15,9 +15,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Cpu, Volume2, Mic, FolderOpen, Save, RefreshCw,
-  Loader2, Check, AlertCircle,
+  Loader2, Check, AlertCircle, Key, ExternalLink, Eye, EyeOff,
 } from 'lucide-react';
-import { isOllamaAvailable, listModels as listOllamaModels } from '../../services/ollama';
+import { validateApiKey } from '../../services/geminiLive';
 import { getPiperStatus, PIPER_VOICES } from '../../services/piperService';
 import { FilePickerButton } from '../shared/FilePickerButton';
 import { getSettings } from '../../hooks/useSettings';
@@ -28,31 +28,24 @@ export function SettingsTab() {
   const [settings, setSettings] = useState<AppSettings>(() => getSettings());
   const [saved, setSaved] = useState(false);
 
-  // AI status
-  const [ollamaOk, setOllamaOk] = useState<boolean | null>(null);
-  const [models, setModels] = useState<string[]>([]);
-  const [checking, setChecking] = useState(false);
+  // Gemini API key
+  const [showKey, setShowKey] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [keyValid, setKeyValid] = useState<boolean | null>(null);
 
-  // Check Ollama on mount
-  useEffect(() => {
-    checkOllama();
-  }, []);
-
-  const checkOllama = useCallback(async () => {
-    setChecking(true);
+  const handleValidateKey = useCallback(async () => {
+    const key = settings.geminiApiKey;
+    if (!key?.trim()) return;
+    setValidating(true);
     try {
-      const ok = await isOllamaAvailable();
-      setOllamaOk(ok);
-      if (ok) {
-        const m = await listOllamaModels();
-        setModels(m);
-      }
+      const valid = await validateApiKey(key.trim());
+      setKeyValid(valid);
     } catch {
-      setOllamaOk(false);
+      setKeyValid(false);
     } finally {
-      setChecking(false);
+      setValidating(false);
     }
-  }, []);
+  }, [settings.geminiApiKey]);
 
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -163,58 +156,81 @@ export function SettingsTab() {
           AI Co-Host
         </div>
 
-        {/* Ollama status */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-2)',
-          padding: 'var(--space-2) var(--space-3)',
-          background: 'var(--bg-surface)',
-          borderRadius: 'var(--radius-md)',
-        }}>
-          {checking ? (
-            <Loader2 size={14} style={{ color: 'var(--gold)', animation: 'sacred-spin 1.618s linear infinite' }} />
-          ) : ollamaOk ? (
-            <div className="status-dot online" />
-          ) : (
-            <div className="status-dot offline" />
-          )}
-          <span className="mono" style={{
-            fontSize: '11px',
-            color: ollamaOk ? 'var(--green)' : 'var(--text-dim)',
-          }}>
-            {checking ? 'Checking...' : ollamaOk ? 'Ollama connected' : 'Ollama not detected'}
-          </span>
-          <button
-            onClick={checkOllama}
-            style={{
-              marginLeft: 'auto',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-dim)',
-              padding: '4px',
-            }}
-            title="Refresh"
-          >
-            <RefreshCw size={12} />
-          </button>
-        </div>
-
-        {/* Model selector */}
+        {/* Gemini API Key */}
         <div style={fieldStyle}>
-          <label style={labelStyle}>Model</label>
-          <select
-            value={settings.llmModel}
-            onChange={(e) => updateSetting('llmModel', e.target.value)}
-            style={selectStyle}
-          >
-            {models.length > 0 ? (
-              models.map(m => <option key={m} value={m}>{m}</option>)
-            ) : (
-              <option value={settings.llmModel}>{settings.llmModel || 'No models found'}</option>
-            )}
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label style={labelStyle}>
+              <Key size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+              Gemini API Key
+            </label>
+            <button
+              onClick={() => window.open('https://aistudio.google.com/apikey', '_blank')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--gold)',
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              Get free key <ExternalLink size={10} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={settings.geminiApiKey || ''}
+                onChange={(e) => { updateSetting('geminiApiKey', e.target.value); setKeyValid(null); }}
+                placeholder="Paste your Google AI Studio key"
+                style={{ ...inputStyle, width: '100%', paddingRight: '36px' }}
+              />
+              <button
+                onClick={() => setShowKey(!showKey)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            <button
+              onClick={handleValidateKey}
+              disabled={!settings.geminiApiKey?.trim() || validating}
+              style={{
+                padding: 'var(--space-2) var(--space-3)',
+                background: keyValid ? 'rgba(57, 255, 20, 0.1)' : 'var(--bg-elevated)',
+                color: keyValid ? 'var(--green)' : 'var(--text-secondary)',
+                border: keyValid ? '1px solid rgba(57, 255, 20, 0.3)' : '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--text-sm)',
+                cursor: settings.geminiApiKey?.trim() ? 'pointer' : 'default',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {validating ? <Loader2 size={14} style={{ animation: 'sacred-spin 1.618s linear infinite' }} /> :
+               keyValid ? <><Check size={14} /> Valid</> :
+               keyValid === false ? 'Invalid' :
+               'Verify'}
+            </button>
+          </div>
+          <p className="mono" style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+            Powers the AI co-host voice conversation · Free tier available
+          </p>
         </div>
 
         {/* Silence threshold */}
