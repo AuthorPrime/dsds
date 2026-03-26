@@ -1,3 +1,3 @@
 export { StudioTab } from './StudioTab';
 export { SettingsTab } from './SettingsTab';
-export { CreditsTab } from './CreditsTab';
+export { default as CreditsTab } from './CreditsTab';
