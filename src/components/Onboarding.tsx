@@ -31,10 +31,20 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [hostName, setHostName] = useState('');
   const [podcastName, setPodcastName] = useState('');
 
-  // Gemini API key
-  const [apiKey, setApiKey] = useState('');
+  // Gemini API key — try to auto-load from saved settings
+  const [apiKey, setApiKey] = useState(() => {
+    const saved = getSettings();
+    return saved.geminiApiKey || '';
+  });
   const [validating, setValidating] = useState(false);
   const [keyValid, setKeyValid] = useState<boolean | null>(null);
+
+  // Auto-validate if key exists on mount
+  useEffect(() => {
+    if (step === 'setup' && apiKey && keyValid === null) {
+      handleValidateKey();
+    }
+  }, [step]);
 
   const handleValidateKey = async () => {
     if (!apiKey.trim()) return;
