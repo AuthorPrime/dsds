@@ -6,6 +6,8 @@ A desktop content creation app for recording, writing, and producing — with bu
 
 > *Buy it. Own it. Forever. No monthly rent on your own creativity.*
 
+> **Status: in active development.** Sovereign Studio (DSDS) is the Digital Sovereign Society's local-first content-creation app — the applied, human-facing side of the sovereign stack. It is being actively rebuilt around a universal provider abstraction and a local voice tier.
+
 ---
 
 ## What It Does
